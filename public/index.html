@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>赛博卜卦 · 曾仕强《易经的智慧》</title>
+<meta name="description" content="三枚铜钱起卦，随机六爻成卦，依曾仕强《易经的智慧》卦辞爻辞精解，结合所问之事给出参考。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>☯</text></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="scanline" aria-hidden="true"></div>
+<div class="glow glow-a" aria-hidden="true"></div>
+<div class="glow glow-b" aria-hidden="true"></div>
+
+<header class="masthead">
+  <div class="logo">
+    <span class="logo-mark">☯</span>
+    <span class="logo-text">赛博卜卦<em>Cyber&nbsp;Divination</em></span>
+  </div>
+  <p class="tagline">三枚铜钱起六爻 · 依曾仕强《易经的智慧》参详</p>
+</header>
+
+<main>
+
+  <!-- ══════════════ 起卦 ══════════════ -->
+  <section class="panel cast-panel" id="castPanel">
+    <div class="panel-head">
+      <h2>起卦</h2>
+      <span class="panel-sub">心诚则灵 · 一事一问</span>
+    </div>
+
+    <label class="field">
+      <span class="field-label">所问之事<em>选填</em></span>
+      <textarea id="question" rows="2" maxlength="200"
+        placeholder="例：这份新工作该不该接？／眼下这段关系如何自处？／今年是否宜于换城市？"></textarea>
+    </label>
+
+    <div class="cast-row">
+      <button id="castBtn" class="btn btn-primary">
+        <span class="btn-icon">䷀</span>
+        <span class="btn-label">掷铜钱 · 起卦</span>
+      </button>
+      <button id="manualBtn" class="btn btn-ghost" title="手动指定六爻">手选六爻</button>
+    </div>
+
+    <!-- 铜钱动画 -->
+    <div class="coins" id="coins" aria-hidden="true">
+      <div class="coin"><span>乾</span></div>
+      <div class="coin"><span>坤</span></div>
+      <div class="coin"><span>屯</span></div>
+    </div>
+
+    <!-- 手动选爻 -->
+    <div class="manual" id="manual" hidden>
+      <p class="manual-tip">自下而上，逐爻选定阴阳与动静：</p>
+      <div class="manual-yaos" id="manualYaos"></div>
+      <button id="manualCastBtn" class="btn btn-primary btn-sm">以此成卦</button>
+    </div>
+  </section>
+
+  <!-- ══════════════ 结果 ══════════════ -->
+  <section class="result" id="result" hidden>
+
+    <!-- 卦象三宫 -->
+    <div class="panel">
+      <div class="panel-head">
+        <h2>卦象</h2>
+        <span class="panel-sub" id="resultMeta"></span>
+      </div>
+
+      <div class="trigrams" id="trigrams"></div>
+
+      <div class="judge-rule" id="judgeRule"></div>
+    </div>
+
+    <!-- 本卦详解 -->
+    <div class="panel" id="benPanel"></div>
+
+    <!-- 六爻详解 -->
+    <div class="panel">
+      <div class="panel-head">
+        <h2>六爻详解</h2>
+        <span class="panel-sub">自下而上 · <i class="dot-moving"></i> 标记为动爻</span>
+      </div>
+      <ol class="yao-list" id="yaoList"></ol>
+    </div>
+
+    <!-- 变卦 -->
+    <div class="panel" id="bianPanel" hidden></div>
+
+    <!-- 互卦 -->
+    <div class="panel" id="huPanel" hidden></div>
+
+    <!-- ══════════════ AI 解卦 ══════════════ -->
+    <div class="panel ai-panel">
+      <div class="panel-head">
+        <h2>AI 解卦</h2>
+        <span class="panel-sub" id="aiStatus">检测中…</span>
+      </div>
+
+      <div class="ai-actions">
+        <button id="aiBtn" class="btn btn-ai">
+          <span class="btn-icon">✦</span>
+          <span class="btn-label">结合所问之事 · 独立分析</span>
+        </button>
+        <button id="copyPromptBtn" class="btn btn-ghost btn-sm">复制提示词</button>
+      </div>
+
+      <div class="ai-output" id="aiOutput" hidden>
+        <div class="ai-text" id="aiText"></div>
+      </div>
+
+      <details class="prompt-box" id="promptBox" hidden>
+        <summary>查看 / 复制送给大模型的完整提示词</summary>
+        <pre id="promptText"></pre>
+      </details>
+    </div>
+
+    <button id="recastBtn" class="btn btn-ghost btn-block">再起一卦</button>
+  </section>
+
+  <!-- ══════════════ 六十四卦速查 ══════════════ -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>六十四卦速查</h2>
+      <span class="panel-sub">点开看卦辞与曾仕强卦理</span>
+    </div>
+    <input type="search" id="hexSearch" class="search" placeholder="搜卦名，如 谦 / 乾为天 / 水火">
+    <div class="hex-grid" id="hexGrid"></div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <p>卦象内容整理自曾仕强先生《易经的奥秘》附录「六十四卦精解」与《易经的智慧》系列讲座公开资料，供学习与文化参考。</p>
+  <p class="dim">卦者，时也。知进退存亡而不失其正 —— 内容不构成重大决策依据。</p>
+</footer>
+
+<script src="hexagrams.js"></script>
+<script src="divine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

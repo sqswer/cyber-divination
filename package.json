@@ -1,0 +1,23 @@
+{
+  "name": "cyber-divination",
+  "version": "1.0.0",
+  "description": "赛博卜卦 · 三枚铜钱起六爻，依曾仕强《易经的智慧》卦辞爻辞精解，可选接入大模型结合所问之事独立分析",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "易经",
+    "卜卦",
+    "六十四卦",
+    "曾仕强",
+    "铜钱卦",
+    "iching"
+  ],
+  "license": "MIT",
+  "private": true
+}
