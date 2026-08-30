@@ -493,6 +493,40 @@ textarea::placeholder, input::placeholder { color: #4c5a72; }
 .modal .close:hover { color: var(--txt); }
 
 /* ── 页脚 ───────────────────────────────────────────────── */
+/* ── 参卦建议（起卦区上方） ──────────────────────────────── */
+.notice {
+  position: relative; z-index: 2;
+  max-width: 860px; margin: 0 auto 18px; padding: 16px 20px 18px;
+  background: linear-gradient(180deg, rgba(233,196,106,.08), rgba(13,20,34,.62));
+  border: 1px solid rgba(233,196,106,.30);
+  border-radius: var(--r);
+  box-shadow: 0 6px 26px rgba(0,0,0,.42);
+}
+.notice-head {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 11px;
+}
+.notice-mark {
+  font-size: 17px; color: var(--gold);
+  text-shadow: 0 0 12px rgba(233,196,106,.55);
+}
+.notice-title {
+  font-size: 13.5px; font-weight: 700; letter-spacing: .18em;
+  color: var(--gold);
+}
+.notice-list {
+  margin: 0; padding-left: 1.25em;
+  display: flex; flex-direction: column; gap: 9px;
+}
+.notice-list li {
+  font-size: 13px; line-height: 1.85; color: var(--txt-2);
+}
+.notice-list li::marker { color: var(--gold); font-weight: 700; }
+.notice-list b { color: var(--txt); font-weight: 600; }
+.notice-list em {
+  font-style: normal; color: var(--rose); font-weight: 600;
+  border-bottom: 1px dashed rgba(255,77,141,.5);
+}
+
 .footer {
   position: relative; z-index: 2;
   max-width: 860px; margin: 0 auto; padding: 0 16px 48px;
