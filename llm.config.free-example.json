@@ -1,0 +1,39 @@
+{
+  "_说明": "免费 / 开源大模型参考示例。把本文件复制为 llm.config.json 并填入 key（多数免费平台注册即得）即可接入 AI 解卦。该文件本身不会被提交（.gitignore 已忽略 llm.config.json）。也可以用环境变量覆盖。",
+  "_重要": "免费模型的名称随各平台政策变动，请以官网当前可用模型为准。下方把模型写成 deepseek-v4-flash 仅为「示意名」——若你实际拿到的开源权重叫这个名字，把 base / model 换成对应服务的兼容端点即可（自建 vLLM、Ollama、或各云厂商均可）。",
+
+  "base": "https://openrouter.ai/api/v1",
+  "key": "sk-or-v1-xxxxxxxxxxxxxxxxxxxxxxxx",
+  "model": "deepseek/deepseek-r1-distill-llama-70b:free",
+  "temperature": 0.7,
+
+  "_免费选项": {
+    "OpenRouter（免费档，标 :free）": {
+      "base": "https://openrouter.ai/api/v1",
+      "model": "deepseek/deepseek-r1-distill-llama-70b:free",
+      "备注": "注册即送额度，部分模型标 :free 可直接免费用，无需付费；兼容 OpenAI 协议"
+    },
+    "硅基流动 SiliconFlow（新用户送额度）": {
+      "base": "https://api.siliconflow.cn/v1",
+      "model": "deepseek-ai/DeepSeek-V3",
+      "备注": "DeepSeek 系列可免费用，注册送免费额度，按量结算"
+    },
+    "DeepSeek 官方（新用户赠金）": {
+      "base": "https://api.deepseek.com/v1",
+      "model": "deepseek-chat",
+      "备注": "官方开放平台，按量计费、新用户有赠金；若用本地开源权重可忽略"
+    },
+    "本地 Ollama（完全免费·离线）": {
+      "base": "http://127.0.0.1:11434/v1",
+      "model": "deepseek-r1:7b",
+      "备注": "本机装好 Ollama 并 pull 模型即可，零成本、隐私不出本机；线上部署无法用本机地址"
+    },
+    "示意：deepseek-v4-flash（开源权重）": {
+      "base": "https://你的兼容端点/v1",
+      "model": "deepseek-v4-flash",
+      "备注": "把 base 换成提供该权重的服务地址（自建或云厂商），model 填其对外暴露的模型 ID"
+    }
+  },
+
+  "_环境变量写法": "LLM_API_BASE=https://openrouter.ai/api/v1 LLM_API_KEY=sk-xxx LLM_MODEL=deepseek/deepseek-r1-distill-llama-70b:free node server.js"
+}

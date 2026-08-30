@@ -10,6 +10,17 @@
   var POS_NAME = ['初', '二', '三', '四', '五', '上'];
   var COIN_NAME = { 6: '老阴 · 动', 7: '少阳 · 静', 8: '少阴 · 静', 9: '老阳 · 动' };
 
+  /* 把逐爻详解（yao-yi.js）合并进六十四卦数据，使前后端共用同一份 */
+  function mergeYi() {
+    if (!window.YAO_YI) return;
+    (window.YI.HEXAGRAMS || []).forEach(function (g) {
+      var m = window.YAO_YI[String(g.n)];
+      if (!m) return;
+      g.yaos.forEach(function (y) { if (m[y.name]) y.yi = m[y.name]; });
+    });
+  }
+  mergeYi();
+
   var state = {
     result: null,     // 当前卦象结果
     question: '',
@@ -47,8 +58,8 @@
     return h + '</div>';
   }
 
-  /* 一卦的完整详解块 */
-  function guaBlock(hex, title, note) {
+  /* 一卦的完整详解块：卦辞 + 精解 + 大象传 + 卦理 */
+  function guaBlock(hex, note) {
     if (!hex) return '';
     return '' +
       '<div class="gua-block">' +
@@ -61,29 +72,36 @@
         '<div class="gua-sec">' +
           '<h4>卦 辞</h4>' +
           '<div class="gua-ci">' + esc(hex.guaci) + '</div>' +
-          '<div class="gua-jie">曾仕强精解：' + esc(hex.guaciJie) + '</div>' +
+          '<div class="gua-jie">卦辞精解：' + esc(hex.guaciJie) + '</div>' +
+          '<div class="gua-daxiang">大象传：' + esc(hex.daxiang) + '</div>' +
         '</div>' +
         '<div class="gua-sec">' +
-          '<h4>卦 理 · 曾仕强《易经的智慧》</h4>' +
+          '<h4>卦 理</h4>' +
           '<div class="gua-li">' + esc(hex.li) + '</div>' +
         '</div>' +
       '</div>';
   }
 
-  /* ───────────────────────────────────────────── 起卦 */
+  /* ───────────────────────────────────────────── 起卦
+   * 刻意放慢：六爻逐爻浮现，每爻间隔 STEP_MS，最后一爻后略作停顿，
+   * 全程约 2.5 秒，保留「掷钱成卦」的仪式感。 */
+  var STEP_MS = 330;
+
   function cast(tosses) {
     var btn = $('#castBtn');
     var coins = $('#coins');
+    var stage = $('#castStage');
     var question = $('#question').value.trim();
 
     btn.disabled = true;
     coins.classList.add('on');
+    stage.hidden = false;
+    $('#result').hidden = true;
+    resetStage();
 
     var payload = { question: question };
     if (tosses) payload.tosses = tosses;
 
-    // 最短动画时长，避免一闪而过没有仪式感
-    var started = Date.now();
     fetch('/api/divine', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -91,26 +109,67 @@
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        var wait = Math.max(0, 900 - (Date.now() - started));
-        setTimeout(function () {
-          coins.classList.remove('on');
-          btn.disabled = false;
-          if (!data.ok) { toast('起卦失败，请重试'); return; }
+        if (!data.ok) { finishCast(btn, coins, stage); toast('起卦失败，请重试'); return; }
+        playToss(data.result, function () {
+          finishCast(btn, coins, stage);
           render(data);
-        }, wait);
+        });
       })
       .catch(function () {
-        coins.classList.remove('on');
-        btn.disabled = false;
         // 接口不可用时，用本地引擎兜底（纯静态部署也能用）
         var r = window.Divine.buildResult(tosses || window.Divine.tossHexagram());
-        render({ ok: true, question: question, result: {
-          tosses: r.tosses, benLines: r.benLines, bianLines: r.bianLines,
-          moving: r.moving, judge: window.Divine.judgeRule(r),
-          ben: r.ben, bian: r.bian, hu: r.hu
-        }});
-        toast('离线模式：已用本地引擎起卦');
+        var packed = {
+          ok: true, question: question,
+          result: {
+            tosses: r.tosses, benLines: r.benLines, bianLines: r.bianLines,
+            moving: r.moving, judge: window.Divine.judgeRule(r),
+            ben: r.ben, bian: r.bian, hu: r.hu
+          }
+        };
+        playToss(packed.result, function () {
+          finishCast(btn, coins, stage);
+          render(packed);
+          toast('离线模式：已用本地引擎起卦');
+        });
       });
+  }
+
+  function resetStage() {
+    var box = $('#castPending');
+    box.innerHTML = '';
+    for (var i = 0; i < 6; i++) {
+      var d = document.createElement('div');
+      d.className = 'seed';
+      box.appendChild(d);
+    }
+    $('#stageText').innerHTML = '';
+  }
+
+  /* 逐爻浮现 */
+  function playToss(res, done) {
+    var seeds = $$('#castPending .seed');
+    var i = 0;
+    (function step() {
+      if (i >= 6) {
+        $('#stageText').innerHTML = '六爻已成 · <b>正在排卦…</b>';
+        setTimeout(done, 560);
+        return;
+      }
+      var t = res.tosses[i];
+      var isM = (t === 6 || t === 9);
+      $('#stageText').innerHTML =
+        '第 ' + (i + 1) + ' 爻 · <b>' + POS_NAME[i] + '爻</b>　掷得 <b>' + COIN_NAME[t] + '</b>' +
+        (isM ? '　<span style="color:var(--rose)">动爻</span>' : '');
+      seeds[i].className = 'seed ' + ((t === 7 || t === 9) ? 'yang' : 'yin') + (isM ? ' mv' : '') + ' pop';
+      i++;
+      setTimeout(step, STEP_MS);
+    })();
+  }
+
+  function finishCast(btn, coins, stage) {
+    coins.classList.remove('on');
+    stage.hidden = true;
+    btn.disabled = false;
   }
 
   /* ───────────────────────────────────────────── 渲染结果 */
@@ -170,13 +229,23 @@
     $('#judgeRule').innerHTML =
       '<div><b>' + esc(r.judge.text) + '</b></div><div>' + esc(r.judge.focus) + '</div>';
 
+    // 为何变卦（本卦 / 变卦的来由，讲清「不是因为不当位」）
+    $('#whyBianPanel').hidden = false;
+    $('#whyBian').innerHTML =
+      '<h4>' + (r.moving.length ? '本次为何会有变卦' : '本次为何没有变卦') + '</h4>' +
+      '<div>' + esc(window.Divine.explainMoving(r)) + '</div>';
+
+    // 三卦关系：本卦 → 变卦 → 互卦 的来龙去脉
+    $('#relationPanel').hidden = false;
+    $('#relation').innerHTML = window.Divine.relationInfo(r).html;
+
     // 本卦详解
     $('#benPanel').innerHTML =
       '<div class="panel-head"><h2>本卦详解</h2>' +
       '<span class="panel-sub">' + esc(r.ben.full) + '</span></div>' +
-      guaBlock(r.ben, '本卦', '主断所依');
+      guaBlock(r.ben, '主断所依');
 
-    // 六爻详解
+    // 六爻详解：爻辞 / 小象传 / 爻位 / 精解
     var yl = '';
     r.ben.yaos.forEach(function (y, i) {
       var isM = r.moving.indexOf(i) >= 0;
@@ -185,10 +254,13 @@
                 '<span class="yao-badge">' + POS_NAME[i] + '爻 · ' + esc(y.name) + '</span>' +
                 '<span class="yao-coin">' + COIN_NAME[r.tosses[i]] + '</span>' +
               '</div>' +
-              '<div class="yao-main">' +
-                '<div class="ci">' + esc(y.ci) + '</div>' +
-                '<div class="jie">曾仕强精解：' + esc(y.jie) + '</div>' +
-              '</div>' +
+              '<div class="yao-main"><div class="yao-body">' +
+                '<div class="yao-row r-ci">'    + '<span class="k">爻辞</span>'   + '<span class="v">' + esc(y.ci)    + '</span></div>' +
+                '<div class="yao-row r-xiang">' + '<span class="k">小象传</span>' + '<span class="v">' + esc(y.xiang) + '</span></div>' +
+                '<div class="yao-row r-wei">'   + '<span class="k">爻位</span>'   + '<span class="v">' + esc(y.wei)   + '</span></div>' +
+                '<div class="yao-row r-jie">'   + '<span class="k">精解</span>'   + '<span class="v">' + esc(y.jie)   + '</span></div>' +
+                (y.yi ? '<div class="yao-row r-yi">' + '<span class="k">详解</span>' + '<span class="v">' + esc(y.yi) + '</span></div>' : '') +
+              '</div></div>' +
             '</li>';
     });
     $('#yaoList').innerHTML = yl;
@@ -199,7 +271,7 @@
       $('#bianPanel').innerHTML =
         '<div class="panel-head"><h2>变卦详解</h2>' +
         '<span class="panel-sub">' + esc(r.bian.full) + '　由 ' + r.moving.length + ' 个动爻变来</span></div>' +
-        guaBlock(r.bian, '变卦', '趋势所往');
+        guaBlock(r.bian, '趋势所往');
     } else {
       $('#bianPanel').hidden = true;
     }
@@ -210,7 +282,7 @@
       $('#huPanel').innerHTML =
         '<div class="panel-head"><h2>互卦详解</h2>' +
         '<span class="panel-sub">' + esc(r.hu.full) + '　二三四爻为下卦、三四五爻为上卦</span></div>' +
-        guaBlock(r.hu, '互卦', '过程内情');
+        guaBlock(r.hu, '过程内情');
     } else {
       $('#huPanel').hidden = true;
     }
@@ -401,7 +473,7 @@
       '<div class="modal">' +
         '<button class="close" aria-label="关闭">×</button>' +
         hexFigure(g.lines, [], 0) +
-        guaBlock(g, '', '') +
+        guaBlock(g, '') +
       '</div>';
     mask.addEventListener('click', function (e) {
       if (e.target === mask || e.target.classList.contains('close')) mask.remove();

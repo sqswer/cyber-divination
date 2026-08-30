@@ -109,6 +109,98 @@
     }
   }
 
+  /* 解释「为什么会变卦」—— 这是最容易被误解的一环
+   * 要点：变卦由「掷出老阴 6 / 老阳 9」引起，与当位与否【没有】因果关系。 */
+  function explainMoving(res) {
+    if (!res.moving.length) {
+      return '本次六爻皆静（六爻都是少阳或少阴，没有掷出老阴或老阳），因此不产生变卦，只看本卦即可。';
+    }
+    var names = res.moving.map(function (i) {
+      return YAO_POS_NAME[i] + '爻（' + res.ben.yaos[i].name + '）';
+    }).join('、');
+    var detail = res.moving.map(function (i) {
+      var t = res.tosses[i];
+      return YAO_POS_NAME[i] + '爻掷得' +
+             (t === 9 ? '老阳 9，阳极生阴，阳转而为阴' : '老阴 6，阴极生阳，阴转而为阳');
+    }).join('；');
+    return '变卦【不是】因为某爻「不当位」才产生，而是因为掷出了老阴（6）或老阳（9）——' +
+           '物极必反，阳极生阴、阴极生阳，这样的爻称为动爻，动则生变。' +
+           '本次共 ' + res.moving.length + ' 个动爻：' + names + '。' +
+           '逐一来说是：' + detail + '。' +
+           '把这些动爻的阴阳翻转后，即由【' + res.ben.name + '卦】变为【' + res.bian.name + '卦】。' +
+           '要注意的是，「当位 / 不当位」是另一套体系，只用来辅助判断一爻的吉凶，并不决定这个爻会不会变——' +
+           '一个当位的爻照样可能掷成老阳而发动，一个不当位的爻也完全可能掷成少阴而安静不动。';
+  }
+
+  /* 本卦 / 变卦 / 互卦 三者之间的关系（既给前端 HTML，也给大模型纯文本） */
+  function esc4(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function relationInfo(res) {
+    var b = res.ben, v = res.bian, h = res.hu;
+
+    // 由三爻阴阳（自下而上）反查八卦名
+    function tg(arr) {
+      var code = arr.join('');
+      for (var k in YI.TRIGRAMS) {
+        if ((YI.TRIGRAMS[k] || []).join('') === code) return k;
+      }
+      return '';
+    }
+
+    var blocks = [];
+    var text = [];
+
+    // —— 本卦与变卦（本之卦）——
+    if (v) {
+      var flips = res.moving.map(function (i) {
+        var fromY = res.benLines[i] === 1, toY = res.bianLines[i] === 1;
+        var dir = fromY ? '阳化为阴' : '阴化为阳';
+        var cause = res.tosses[i] === 9 ? '掷得老阳 9（阳极生阴）' : '掷得老阴 6（阴极生阳）';
+        return '第 ' + YAO_POS_NAME[i] + ' 爻（' + res.ben.yaos[i].name + '）由' + dir + '（' + cause + '）';
+      }).join('；');
+
+      var benBian = '本卦是「体」，看事情的初始与现状；变卦是「用」，看事情的归宿与趋势。' +
+        '本次共有 ' + res.moving.length + ' 个动爻，正是局势流转的枢纽：' + flips + '。' +
+        '把这些动爻翻转，便由【' + b.full + '】变为【' + v.full + '】——' +
+        '整件事的走向，便是从「' + b.full + '」的处境，逐渐推移到「' + v.full + '」的处境。';
+      blocks.push({ title: '本卦 → 变卦（本之卦）', body: benBian });
+      text.push('【本卦与变卦的关系】' + benBian);
+    } else {
+      var nb = '六爻皆静，没有出现动爻，因此不生成变卦。这意味着当前处境相对稳定，本卦即定局，' +
+        '重在持守本卦之意、静观其变，不必急于求变。此时只看本卦即可。';
+      blocks.push({ title: '本卦 → 变卦', body: nb });
+      text.push('【本卦与变卦的关系】' + nb);
+    }
+
+    // —— 本卦与互卦（互体）——
+    if (h) {
+      var lower = [res.benLines[1], res.benLines[2], res.benLines[3]]; // 二、三、四爻 = 互卦下卦
+      var upper = [res.benLines[2], res.benLines[3], res.benLines[4]]; // 三、四、五爻 = 互卦上卦
+      var ln = tg(lower), un = tg(upper);
+      var benHu = '互卦由本卦中间四爻叠成：取第二、三、四爻为下卦（' + ln + '），第三、四、五爻为上卦（' + un + '），合成【' + h.full + '】。' +
+        '本卦看的是事情的「面」（显在的处境），互卦看的是事情的「底」（隐微的过程与内情）。' +
+        '本卦像台面上的戏，互卦像幕后的因果——往往正是互卦所揭示的内在矛盾或潜流，推动着事情由本卦走向变卦。';
+      blocks.push({ title: '本卦 → 互卦（互体）', body: benHu });
+      text.push('【本卦与互卦的关系】' + benHu);
+    }
+
+    // —— 三卦合参 ——
+    var summary = '合起来看：以本卦【' + b.full + '】为起点（现状 · 来龙），互卦【' + (h ? h.full : '—') + '】为过程（内情 · 隐微），' +
+      (v ? '变卦【' + v.full + '】为归宿（趋势 · 去脉）' : '本卦即定局，无变卦') +
+      '。三者一脉相承，正构成这件事的「来龙—去脉」。';
+    blocks.push({ title: '三卦合参', body: summary });
+    text.push(summary);
+
+    return {
+      html: blocks.map(function (bk) {
+        return '<div class="rel-item"><div class="rel-h">' + esc4(bk.title) + '</div><div class="rel-b">' + esc4(bk.body) + '</div></div>';
+      }).join(''),
+      text: text.join('\n')
+    };
+  }
+
   /* 把结果整理成便于展示 / 便于喂给大模型的纯文本 */
   function toText(res, question) {
     var L = [];
@@ -116,15 +208,17 @@
     L.push('');
     L.push('【本卦】第 ' + res.ben.n + ' 卦 · ' + res.ben.full + '（' + res.ben.upNature + '上' + res.ben.downNature + '下）');
     L.push('　卦辞：' + res.ben.guaci);
-    L.push('　曾仕强卦辞精解：' + res.ben.guaciJie);
-    L.push('　曾仕强卦理：' + res.ben.li);
+    L.push('　卦辞精解：' + res.ben.guaciJie);
+    L.push('　大象传：' + res.ben.daxiang);
+    L.push('　卦理：' + res.ben.li);
 
     if (res.bian) {
       L.push('');
       L.push('【变卦】第 ' + res.bian.n + ' 卦 · ' + res.bian.full + '（' + res.bian.upNature + '上' + res.bian.downNature + '下）');
       L.push('　卦辞：' + res.bian.guaci);
-      L.push('　曾仕强卦辞精解：' + res.bian.guaciJie);
-      L.push('　曾仕强卦理：' + res.bian.li);
+      L.push('　卦辞精解：' + res.bian.guaciJie);
+      L.push('　大象传：' + res.bian.daxiang);
+      L.push('　卦理：' + res.bian.li);
     }
     if (res.hu) {
       L.push('');
@@ -137,9 +231,22 @@
     res.ben.yaos.forEach(function (y, i) {
       var isM = res.moving.indexOf(i) >= 0;
       var coin = { 6: '老阴', 7: '少阳', 8: '少阴', 9: '老阳' }[res.tosses[i]];
-      L.push('　' + (isM ? '★ ' : '　') + YAO_POS_NAME[i] + '爻 ' + y.name + '（' + coin + '）：' + y.ci);
-      L.push('　　曾仕强精解：' + y.jie);
+      L.push('　' + (isM ? '★ ' : '　') + YAO_POS_NAME[i] + '爻 ' + y.name +
+             '（' + coin + (isM ? '，动爻' : '') + '）');
+      L.push('　　爻辞：' + y.ci);
+      L.push('　　小象传：' + y.xiang);
+      L.push('　　爻位：' + y.wei);
+      L.push('　　精解：' + y.jie);
+      if (y.yi) L.push('　　详解：' + y.yi);
     });
+
+    L.push('');
+    L.push('【为何变卦】' + explainMoving(res));
+
+    var rel = relationInfo(res);
+    L.push('');
+    L.push('【三卦关系】');
+    L.push(rel.text);
 
     var rule = judgeRule(res);
     L.push('');
@@ -151,13 +258,20 @@
   /* 构造喂给外部大模型的 Prompt */
   function buildPrompt(res, question) {
     return [
-      '你是「赛博卜卦」的解卦顾问。请严格依据下面提供的《易经》卦象资料与曾仕强先生的解读，',
+      '你是「赛博卜卦」的解卦顾问，深通《周易》的象、数、理与历代传注。',
+      '请严格依据下面提供的卦象资料（卦辞、大象传、小象传、爻辞、爻位分析），',
       '结合提问者所问之事，做一次独立、审慎、有针对性的分析。',
+      '',
+      '## 必须先厘清的两个概念（不可混淆）',
+      '- 变卦：只因掷出老阴(6)或老阳(9)「物极必反」而产生，与当位与否无关。',
+      '- 当位 / 不当位：是另一套判断吉凶的参考体系，不决定爻会不会变。',
+      '解卦时不要把两者混为一谈，更不要说成「因为不当位所以变了卦」。',
       '',
       '## 输出要求',
       '1. 先用不超过 80 字给出【一句话总断】，直接回应所问之事的吉凶与走向。',
       '2. 【卦象透视】：说明本卦、（若有）变卦与互卦合起来呈现出怎样的处境，动爻落在哪一阶段。',
-      '3. 【曾仕强视角】：援引下方资料中的卦理与爻辞精解，讲清「此刻该守还是该进、该显还是该藏」。',
+      '3. 【爻位剖析】：挑出动爻与关键爻，结合小象传与爻位分析（当位、得中、相应、承乘），',
+      '   讲清「此刻该守还是该进、该显还是该藏」，以及为什么。',
       '4. 【行动建议】：给出 3 条具体、可执行、贴合所问之事的建议，按优先级排列。',
       '5. 【风险提示】：点出最需要避免的一两个坑。',
       '6. 结尾附一句提醒：卦者，时也；知进退存亡而不失其正，方为善用易者。并注明内容仅供文化参考，不构成重大决策依据。',
@@ -177,6 +291,8 @@
     tossHexagram: tossHexagram,
     buildResult: buildResult,
     judgeRule: judgeRule,
+    explainMoving: explainMoving,
+    relationInfo: relationInfo,
     toText: toText,
     buildPrompt: buildPrompt,
     YAO_POS_NAME: YAO_POS_NAME

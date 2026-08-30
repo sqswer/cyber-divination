@@ -9,4 +9,14 @@ const src = fs.readFileSync(path.join(__dirname, 'hexagrams.js'), 'utf8');
 const load = new Function('globalThis', 'window', src + '\nreturn globalThis.YI;');
 const YI = load({}, undefined);
 
+// 合并逐爻详解（yao-yi.js，可选）：让服务端也能把「详解」喂给大模型
+try {
+  const YAO_YI = require('./yao-yi.js');
+  YI.HEXAGRAMS.forEach(function (g) {
+    const m = YAO_YI[String(g.n)];
+    if (!m) return;
+    g.yaos.forEach(function (y) { if (m[y.name]) y.yi = m[y.name]; });
+  });
+} catch (e) { /* yao-yi.js 不存在时忽略 */ }
+
 module.exports = YI;

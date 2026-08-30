@@ -14,5 +14,14 @@
     "阿里通义":   { "base": "https://dashscope.aliyuncs.com/compatible-mode/v1", "model": "qwen-plus" },
     "OpenAI":    { "base": "https://api.openai.com/v1",                     "model": "gpt-4o-mini" },
     "本地Ollama": { "base": "http://127.0.0.1:11434/v1",                     "model": "qwen2.5:7b" }
-  }
+  },
+
+  "_免费服务商（注册即送额度 / 标 :free / 本地离线）": {
+    "OpenRouter 免费档":   { "base": "https://openrouter.ai/api/v1",            "model": "deepseek/deepseek-r1-distill-llama-70b:free" },
+    "硅基流动 SiliconFlow": { "base": "https://api.siliconflow.cn/v1",           "model": "deepseek-ai/DeepSeek-V3" },
+    "本地 Ollama":          { "base": "http://127.0.0.1:11434/v1",                "model": "deepseek-r1:7b" },
+    "deepseek-v4-flash（开源权重示意）": { "base": "https://你的兼容端点/v1", "model": "deepseek-v4-flash" }
+  },
+
+  "_另见": "llm.config.free-example.json 是一份可直接复制使用的免费模型完整示例（含环境变量写法）。"
 }

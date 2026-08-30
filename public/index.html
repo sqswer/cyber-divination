@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>赛博卜卦 · 曾仕强《易经的智慧》</title>
-<meta name="description" content="三枚铜钱起卦，随机六爻成卦，依曾仕强《易经的智慧》卦辞爻辞精解，结合所问之事给出参考。">
+<title>赛博卜卦 · 六十四卦参详</title>
+<meta name="description" content="三枚铜钱起卦，随机六爻成卦，依卦辞、大象传、小象传与爻位分析参详，并结合所问之事给出参考。">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>☯</text></svg>">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -19,7 +19,7 @@
     <span class="logo-mark">☯</span>
     <span class="logo-text">赛博卜卦<em>Cyber&nbsp;Divination</em></span>
   </div>
-  <p class="tagline">三枚铜钱起六爻 · 依曾仕强《易经的智慧》参详</p>
+  <p class="tagline">三枚铜钱起六爻 · 卦辞 · 大象传 · 小象传 · 爻位参详</p>
 </header>
 
 <main>
@@ -52,6 +52,12 @@
       <div class="coin"><span>屯</span></div>
     </div>
 
+    <!-- 逐爻生成进度 -->
+    <div class="cast-stage" id="castStage" hidden>
+      <div class="stage-text" id="stageText"></div>
+      <div class="cast-pending" id="castPending"></div>
+    </div>
+
     <!-- 手动选爻 -->
     <div class="manual" id="manual" hidden>
       <p class="manual-tip">自下而上，逐爻选定阴阳与动静：</p>
@@ -59,6 +65,46 @@
       <button id="manualCastBtn" class="btn btn-primary btn-sm">以此成卦</button>
     </div>
   </section>
+
+  <!-- ══════════════ 卦象知识 ══════════════ -->
+  <details class="panel know-panel">
+    <summary class="know-summary">
+      <span class="know-title">卦象知识</span>
+      <span class="know-sub">变卦是怎么来的？「当位」又是什么意思？</span>
+    </summary>
+
+    <div class="know">
+      <div class="know-item">
+        <h5>什么时候才会有变卦</h5>
+        <p>每一爻掷三枚铜钱：字字字得 <b>6（老阴）</b>、背背背得 <b>9（老阳）</b>，这两种就是<b>动爻</b>。物极必反——阳极生阴、阴极生阳，动则生变；把动爻的阴阳翻转，便得到<b>变卦</b>。</p>
+        <p>另两种 <b>7（少阳）</b>、<b>8（少阴）</b> 是静爻，不变。所以<b>六爻皆静时没有变卦</b>，只看本卦即可；只要掷出至少一个 6 或 9，就会出现变卦。</p>
+      </div>
+
+      <div class="know-item warn">
+        <h5>变卦跟「当位」没有关系 —— 这是最常见的误解</h5>
+        <p><b>变卦纯粹是筮法层面的事</b>：只看这一爻掷出的是不是老阴、老阳，与它当不当位<b>没有任何因果关联</b>。</p>
+        <p>一个<b>当位</b>的爻，照样可能掷成老阳（9）而发动；一个<b>不当位</b>的爻，也完全可能掷成少阴（8）安静不动。「因为不当位所以变了卦」是初学者最常犯的错误。</p>
+      </div>
+
+      <div class="know-item">
+        <h5>那「当位 / 不当位」是拿来做什么的</h5>
+        <p>它是另一套<b>判断吉凶</b>的参考体系：初、三、五为阳位，二、四、上为阴位。阳爻居阳位、阴爻居阴位，叫<b>当位</b>（多吉）；反之叫<b>不当位</b>（多吝）。</p>
+        <p>但它只是参考，不是定论。《易》重在「时」——不少卦正因不当位才成其用，也有当位反而不妙的情形，必须结合卦辞、爻辞与所处时位综合来看。</p>
+      </div>
+
+      <div class="know-item">
+        <h5>爻位术语速查</h5>
+        <div class="terms">
+          <div class="term"><span class="t">当位</span><span class="d">阳爻居初 / 三 / 五，或阴爻居二 / 四 / 上。处得其位，多吉。</span></div>
+          <div class="term"><span class="t">不当位</span><span class="d">爻性与位性相错。处非其位，多吝，但并非定凶。</span></div>
+          <div class="term"><span class="t">得中</span><span class="d">二爻为下卦之中，五爻为上卦之中。能守中道，多美誉。</span></div>
+          <div class="term"><span class="t">相应</span><span class="d">初与四、二与五、三与上：一阴一阳为「相应」，同为阴或同为阳则「相敌无应」。</span></div>
+          <div class="term"><span class="t">承乘</span><span class="d">上对下为「乘」，下对上为「承」。柔乘刚多吝，柔承刚多顺。</span></div>
+          <div class="term"><span class="t">互卦</span><span class="d">二三四爻成下卦、三四五爻成上卦，用于看事情的内情与过程。</span></div>
+        </div>
+      </div>
+    </div>
+  </details>
 
   <!-- ══════════════ 结果 ══════════════ -->
   <section class="result" id="result" hidden>
@@ -73,6 +119,24 @@
       <div class="trigrams" id="trigrams"></div>
 
       <div class="judge-rule" id="judgeRule"></div>
+    </div>
+
+    <!-- 为何变卦 -->
+    <div class="panel" id="whyBianPanel" hidden>
+      <div class="panel-head">
+        <h2>为何变卦</h2>
+        <span class="panel-sub">本次起卦的动爻来由</span>
+      </div>
+      <div class="why-bian" id="whyBian"></div>
+    </div>
+
+    <!-- 三卦关系 -->
+    <div class="panel" id="relationPanel" hidden>
+      <div class="panel-head">
+        <h2>三卦关系</h2>
+        <span class="panel-sub">本卦 · 变卦 · 互卦 的来龙去脉</span>
+      </div>
+      <div class="relation" id="relation"></div>
     </div>
 
     <!-- 本卦详解 -->
@@ -125,7 +189,7 @@
   <section class="panel">
     <div class="panel-head">
       <h2>六十四卦速查</h2>
-      <span class="panel-sub">点开看卦辞与曾仕强卦理</span>
+      <span class="panel-sub">点开看卦辞、大象传与卦理</span>
     </div>
     <input type="search" id="hexSearch" class="search" placeholder="搜卦名，如 谦 / 乾为天 / 水火">
     <div class="hex-grid" id="hexGrid"></div>
@@ -134,11 +198,12 @@
 </main>
 
 <footer class="footer">
-  <p>卦象内容整理自曾仕强先生《易经的奥秘》附录「六十四卦精解」与《易经的智慧》系列讲座公开资料，供学习与文化参考。</p>
+  <p>卦象内容整理自传统易学典籍「六十四卦精解」及《周易》大象传、小象传等公开资料，供学习与文化参考。</p>
   <p class="dim">卦者，时也。知进退存亡而不失其正 —— 内容不构成重大决策依据。</p>
 </footer>
 
 <script src="hexagrams.js"></script>
+<script src="yao-yi.js"></script>
 <script src="divine.js"></script>
 <script src="app.js"></script>
 </body>
