@@ -5,6 +5,8 @@ node_modules/
 llm.config.json
 .env
 .env.*
+# 例外：示例文件可入库（仅字段名与占位，无真实密钥）
+!.env.example
 
 # 编辑器 / 系统
 .DS_Store
