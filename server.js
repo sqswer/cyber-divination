@@ -215,7 +215,10 @@ async function aiInterpret(req, res, body) {
         try {
           const json = JSON.parse(payload);
           const delta = json.choices && json.choices[0] && json.choices[0].delta;
-          if (delta && delta.content) sse(res, { ok: true, delta: delta.content });
+          // 兼容 DeepSeek-R1 等推理模型：思考在 reasoning_content、回答在 content，依次转发
+          if (delta && (delta.content || delta.reasoning_content)) {
+            sse(res, { ok: true, delta: delta.content || delta.reasoning_content });
+          }
         } catch (e) { /* 忽略无法解析的片段 */ }
       }
     }
