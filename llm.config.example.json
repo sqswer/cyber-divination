@@ -1,0 +1,27 @@
+{
+  "_说明": "复制本文件为 llm.config.json 并填入 key 即可接入大模型；该文件已在 .gitignore 中，不会被提交。也可以直接设环境变量 LLM_API_BASE / LLM_API_KEY / LLM_MODEL / LLM_TEMPERATURE（环境变量优先级更高）。",
+  "_兼容": "任何提供 OpenAI /v1/chat/completions 协议的服务端都可用，换 base + model 即可。",
+
+  "base": "https://api.deepseek.com/v1",
+  "key": "",
+  "model": "deepseek-chat",
+  "temperature": 0.7,
+
+  "_可选服务商": {
+    "DeepSeek":  { "base": "https://api.deepseek.com/v1",                  "model": "deepseek-chat" },
+    "月之暗面":   { "base": "https://api.moonshot.cn/v1",                    "model": "moonshot-v1-8k" },
+    "智谱":       { "base": "https://open.bigmodel.cn/api/paas/v4",          "model": "glm-4-flash" },
+    "阿里通义":   { "base": "https://dashscope.aliyuncs.com/compatible-mode/v1", "model": "qwen-plus" },
+    "OpenAI":    { "base": "https://api.openai.com/v1",                     "model": "gpt-4o-mini" },
+    "本地Ollama": { "base": "http://127.0.0.1:11434/v1",                     "model": "qwen2.5:7b" }
+  },
+
+  "_免费服务商（注册即送额度 / 标 :free / 本地离线）": {
+    "OpenRouter 免费档":   { "base": "https://openrouter.ai/api/v1",            "model": "deepseek/deepseek-r1-distill-llama-70b:free" },
+    "硅基流动 SiliconFlow": { "base": "https://api.siliconflow.cn/v1",           "model": "deepseek-ai/DeepSeek-V3" },
+    "本地 Ollama":          { "base": "http://127.0.0.1:11434/v1",                "model": "deepseek-r1:7b" },
+    "deepseek-v4-flash（开源权重示意）": { "base": "https://你的兼容端点/v1", "model": "deepseek-v4-flash" }
+  },
+
+  "_另见": "llm.config.free-example.json 是一份可直接复制使用的免费模型完整示例（含环境变量写法）。"
+}
