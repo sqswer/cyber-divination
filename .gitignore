@@ -1,0 +1,19 @@
+# 依赖
+node_modules/
+
+# 密钥配置：含 API Key，绝不入库
+llm.config.json
+.env
+.env.*
+
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+
+# 本地工作数据（项目记忆等）
+.workbuddy/
+
+# 部署文档：本地部署细节不随仓库同步
+DEPLOYMENT.md

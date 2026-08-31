@@ -4,6 +4,8 @@
 
 零第三方依赖，一个 `node server.js` 就能跑。
 
+> 部署（Docker / 静态托管）与接入大模型（配置方式、服务商、提示词路径）相关说明见同目录 **[DEPLOYMENT.md](./DEPLOYMENT.md)**。
+
 ## 快速开始
 
 ```bash
@@ -28,7 +30,7 @@ node server.js
 | 断卦例法 | 依朱熹《易学启蒙》自动判定主断对象（0/1/2/3/4/5/6 个动爻各有章法） |
 | 手选六爻 | 可手动指定每一爻的老阴 / 少阳 / 少阴 / 老阳，用于复盘或验证特定卦象 |
 | 六十四卦速查 | 全部 64 卦网格，支持搜卦名，点开看完整卦辞与卦理 |
-| **AI 解卦** | 一键结合所问之事做独立分析；未配置密钥时自动回传组装好的提示词供手动复制 |
+| **AI 解卦** | 一键结合所问之事做独立分析；未配置密钥时回传提示词概览，配置详见 **[DEPLOYMENT.md](./DEPLOYMENT.md)** |
 
 ## 起卦法
 
@@ -55,68 +57,6 @@ node server.js
 | 5 | 变卦唯一静爻爻辞 |
 | 6 | 变卦卦辞（乾坤另参「用九」「用六」） |
 
-## 接入大模型
-
-接口兼容任何 OpenAI `/v1/chat/completions` 协议的服务端。二选一：
-
-**方式一：配置文件**（推荐本地开发）
-
-```bash
-cp llm.config.example.json llm.config.json
-```
-
-```json
-{
-  "base": "https://api.deepseek.com/v1",
-  "key": "sk-你的密钥",
-  "model": "deepseek-chat",
-  "temperature": 0.7
-}
-```
-
-**方式二：环境变量**（推荐部署环境，优先级更高）
-
-```bash
-LLM_API_BASE=https://api.deepseek.com/v1 \
-LLM_API_KEY=sk-你的密钥 \
-LLM_MODEL=deepseek-chat \
-node server.js
-```
-
-### 免费 / 开源模型参考示例
-
-不想付费也能用。仓库已附 `llm.config.free-example.json`，复制为 `llm.config.json` 填好 key 即可：
-
-```bash
-cp llm.config.free-example.json llm.config.json
-```
-
-其中整理了若干免费档兼容端点（模型名随平台政策变动，以官网为准）：
-
-| 方案 | base | 备注 |
-|---|---|---|
-| OpenRouter（标 `:free`） | `https://openrouter.ai/api/v1` | 注册送额度，部分模型免费用 |
-| 硅基流动 SiliconFlow | `https://api.siliconflow.cn/v1` | 新用户送免费额度，DeepSeek 系列可用 |
-| 本地 Ollama | `http://127.0.0.1:11434/v1` | 完全免费、离线，需本机已 pull 模型（线上部署无法用本机地址） |
-| 自建开源权重（如 `deepseek-v4-flash`） | 你的兼容端点 `/v1` | 把 base 换成提供服务地址，model 填其对外暴露的模型 ID |
-
-> 若你用的是 `deepseek-v4-flash` 这类开源权重，只需把 `base`/`model` 换成对应服务的 OpenAI 兼容端点即可，提示词与前端无需任何改动。
-
-`llm.config.json` 已在 `.gitignore` 中，密钥不会入库。
-
-可选服务商（换 `base` + `model` 即可）：
-
-| 服务商 | base | model 示例 |
-|---|---|---|
-| DeepSeek | `https://api.deepseek.com/v1` | `deepseek-chat` |
-| 月之暗面 | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` |
-| 智谱 | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` |
-| 阿里通义 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` |
-| OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
-| 本地 Ollama | `http://127.0.0.1:11434/v1` | `qwen2.5:7b` |
-
-**未配置密钥时不会报错**：接口会返回按当前卦象完整组装好的提示词（含所问之事、本卦变卦互卦、卦辞卦理、六爻爻辞与精解、断卦例法），前端自动展开，可一键复制到任意大模型对话中使用。
-
 ## 接口
 
 ```
@@ -126,29 +66,8 @@ POST /api/divine          起卦；body: { question?, tosses? }
 GET  /api/ai/status       大模型是否已配置
 POST /api/ai/interpret    AI 解卦；body: { question?, tosses? }
                           已配置 → SSE 流式返回 { ok, delta } … { ok, done }
-                          未配置 → JSON 返回 { ok:false, reason:'not_configured', prompt }
+                          未配置 → JSON 返回 { ok:false, reason:'not_configured', prompt（仅概览） }
 ```
-
-## 部署
-
-### Bonto / Docker
-
-沿用「一夜狼人杀在线网页版」的模式：GitHub 仓库 + 根目录 `Dockerfile`，平台按 Dockerfile 构建。
-
-```bash
-docker build -t cyber-divination .
-docker run -d -p 3000:3000 \
-  -e LLM_API_BASE=https://api.deepseek.com/v1 \
-  -e LLM_API_KEY=sk-xxx \
-  -e LLM_MODEL=deepseek-chat \
-  --name cyber-divination cyber-divination
-```
-
-镜像基于 `node:20-alpine`，零依赖，构建快、体积小。脚本文件即全部产物，无编译步骤。
-
-### 静态托管
-
-前端不强依赖后端：`app.js` 在接口不可达时会用本地引擎兜底起卦，因此 `public/` 目录可单独托管到任意静态空间（GitHub Pages / EdgeOne / OSS 等），只是 AI 解卦功能需要后端代理。
 
 ## 文件结构
 

@@ -286,6 +286,23 @@
     ].join('\n');
   }
 
+  /* 仅取提示词开头一小部分（约前 11 行 / 300 字）作为概览，剩余隐藏。
+   * 与前端 app.js 的 previewPrompt 同源：界面只可查看概览、不可复制全文。 */
+  var PROMPT_PREVIEW_LINES = 11;
+  var PROMPT_PREVIEW_CHARS = 300;
+  function previewPrompt(res, question) {
+    var p = buildPrompt(res, question);
+    var lines = p.split('\n');
+    var head = lines.slice(0, PROMPT_PREVIEW_LINES).join('\n');
+    if (head.length > PROMPT_PREVIEW_CHARS) head = head.slice(0, PROMPT_PREVIEW_CHARS);
+    var omitted = lines.length - PROMPT_PREVIEW_LINES;
+    var more = '';
+    if (omitted > 0 || head.length < p.length) {
+      more = '\n\n……（以下卦象资料与要求已隐藏，仅供概览，不可复制）';
+    }
+    return head + more;
+  }
+
   return {
     tossYao: tossYao,
     tossHexagram: tossHexagram,
@@ -295,6 +312,7 @@
     relationInfo: relationInfo,
     toText: toText,
     buildPrompt: buildPrompt,
+    previewPrompt: previewPrompt,
     YAO_POS_NAME: YAO_POS_NAME
   };
 });
