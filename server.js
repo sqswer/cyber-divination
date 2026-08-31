@@ -154,12 +154,12 @@ async function aiInterpret(req, res, body) {
   const prompt = Divine.buildPrompt(result, question);
 
   if (!cfg.key) {
-    // 未配置密钥：把组装好的 prompt 回传，前端可一键复制去任何大模型里用
+    // 未配置密钥：仅回传提示词概览（不暴露完整 prompt，界面仅可查看、不可复制）
     return sendJSON(res, 200, {
       ok: false,
       reason: 'not_configured',
-      message: '尚未配置大模型密钥。下方的提示词已按本卦完整组装好，复制后粘贴到任意大模型对话中即可得到定制解读。',
-      prompt: prompt
+      message: '尚未配置大模型密钥。下方仅展示提示词概览；在项目根目录建 llm.config.json 填好 base / key / model 后重启服务，即可自动接入。',
+      prompt: Divine.previewPrompt(result, question)
     });
   }
 

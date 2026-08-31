@@ -672,3 +672,12 @@ textarea::placeholder, input::placeholder { color: #4c5a72; }
   background: rgba(0,229,255,.18); border-radius: 9px;
 }
 ::-webkit-scrollbar-thumb:hover { background: rgba(0,229,255,.34); }
+
+/* 送给大模型的提示词：仅可查看，禁止选中与复制 */
+.no-copy {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  cursor: default;
+}

@@ -188,7 +188,6 @@
           <span class="btn-icon">✦</span>
           <span class="btn-label">结合所问之事 · 独立分析</span>
         </button>
-        <button id="copyPromptBtn" class="btn btn-ghost btn-sm">复制提示词</button>
       </div>
 
       <div class="ai-output" id="aiOutput" hidden>
@@ -196,8 +195,8 @@
       </div>
 
       <details class="prompt-box" id="promptBox" hidden>
-        <summary>查看 / 复制送给大模型的完整提示词</summary>
-        <pre id="promptText"></pre>
+        <summary>查看送给大模型的提示词（仅概览，不可复制）</summary>
+        <pre id="promptText" class="no-copy"></pre>
       </details>
     </div>
 

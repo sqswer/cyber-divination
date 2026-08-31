@@ -315,11 +315,27 @@
     }, state.question);
   }
 
+  /* 只展示提示词的一小部分预览（约前 11 行 / 300 字），剩余以省略号收起。
+   * 提示词含占位与结构，按需求仅可查看、不允许复制。 */
+  var PROMPT_PREVIEW_LINES = 11;
+  var PROMPT_PREVIEW_CHARS = 300;
+  function previewPrompt(p) {
+    var lines = p.split('\n');
+    var head = lines.slice(0, PROMPT_PREVIEW_LINES).join('\n');
+    if (head.length > PROMPT_PREVIEW_CHARS) head = head.slice(0, PROMPT_PREVIEW_CHARS);
+    var omitted = lines.length - PROMPT_PREVIEW_LINES;
+    var more = '';
+    if (omitted > 0 || head.length < p.length) {
+      more = '\n\n……（以下内容已隐藏，仅供概览，不可复制）';
+    }
+    return head + more;
+  }
+
   function updatePromptBox() {
     var p = currentPrompt();
     if (!p) { $('#promptBox').hidden = true; return; }
     $('#promptBox').hidden = false;
-    $('#promptText').textContent = p;
+    $('#promptText').textContent = previewPrompt(p);
   }
 
   /* ───────────────────────────────────────────── AI 解卦 */
@@ -350,12 +366,13 @@
         // 未配置密钥 → 回传提示词（application/json）
         if (ct.indexOf('application/json') >= 0) {
           return resp.json().then(function (j) {
+            // 后端已返回预览（仅概览，不含完整 prompt）
             if (j.prompt) $('#promptText').textContent = j.prompt;
             $('#promptBox').hidden = false;
             $('#promptBox').open = true;
             txt.innerHTML = esc(j.message || '尚未配置大模型。') +
               '<br><br><span style="color:var(--dim);font-size:12.5px">' +
-              '已展开下方提示词，可一键复制；或在项目根目录建 llm.config.json 填好 base / key / model 后重启服务，即可自动接入。</span>';
+              '下方仅展示提示词概览，内容不可复制；在项目根目录建 llm.config.json 填好 base / key / model 后重启服务，即可自动接入。</span>';
           });
         }
 
@@ -497,12 +514,6 @@
 
     $('#aiBtn').addEventListener('click', aiInterpret);
 
-    $('#copyPromptBtn').addEventListener('click', function () {
-      var p = $('#promptText').textContent || currentPrompt();
-      if (!p) { toast('请先起卦'); return; }
-      copy(p);
-    });
-
     $('#recastBtn').addEventListener('click', function () {
       cast(null);
     });
@@ -518,6 +529,27 @@
       buildGrid(this.value);
     });
 
+    /* 提示词仅可查看、禁止复制：拦截右键菜单与复制快捷键（仅作用于提示词区） */
+    var blockCopy = function (e) { e.preventDefault(); return false; };
+    var promptBox = $('#promptBox');
+    if (promptBox) {
+      promptBox.addEventListener('contextmenu', blockCopy);
+      promptBox.addEventListener('copy', blockCopy);
+      promptBox.addEventListener('cut', blockCopy);
+      promptBox.addEventListener('selectstart', function (e) {
+        // 允许摘要(summary)正常选中，但正文预览不可选
+        if (e.target && e.target.id === 'promptText') e.preventDefault();
+      });
+      document.addEventListener('keydown', function (e) {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'C')) {
+          if (promptBox.contains(document.activeElement) ||
+              (window.getSelection() && promptBox.contains(window.getSelection().anchorNode))) {
+            e.preventDefault();
+          }
+        }
+      });
+    }
+
     // 检查大模型接口状态
     fetch('/api/ai/status')
       .then(function (r) { return r.json(); })
@@ -530,28 +562,6 @@
       .catch(function () {
         $('#aiStatus').textContent = '后端未启动 · 仍可起卦';
       });
-  }
-
-  function copy(text) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text)
-        .then(function () { toast('提示词已复制'); })
-        .catch(function () { fallbackCopy(text); });
-    } else {
-      fallbackCopy(text);
-    }
-  }
-
-  function fallbackCopy(text) {
-    var ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand('copy'); toast('提示词已复制'); }
-    catch (e) { toast('复制失败，请手动选取'); }
-    ta.remove();
   }
 
   /* ───────────────────────────────────────────── 启动 */

@@ -4,6 +4,8 @@
 
 零第三方依赖，一个 `node server.js` 就能跑。
 
+> 部署（Docker / 静态托管）相关说明见同目录 **[DEPLOYMENT.md](./DEPLOYMENT.md)**。
+
 ## 快速开始
 
 ```bash
@@ -128,27 +130,6 @@ POST /api/ai/interpret    AI 解卦；body: { question?, tosses? }
                           已配置 → SSE 流式返回 { ok, delta } … { ok, done }
                           未配置 → JSON 返回 { ok:false, reason:'not_configured', prompt }
 ```
-
-## 部署
-
-### Bonto / Docker
-
-沿用「一夜狼人杀在线网页版」的模式：GitHub 仓库 + 根目录 `Dockerfile`，平台按 Dockerfile 构建。
-
-```bash
-docker build -t cyber-divination .
-docker run -d -p 3000:3000 \
-  -e LLM_API_BASE=https://api.deepseek.com/v1 \
-  -e LLM_API_KEY=sk-xxx \
-  -e LLM_MODEL=deepseek-chat \
-  --name cyber-divination cyber-divination
-```
-
-镜像基于 `node:20-alpine`，零依赖，构建快、体积小。脚本文件即全部产物，无编译步骤。
-
-### 静态托管
-
-前端不强依赖后端：`app.js` 在接口不可达时会用本地引擎兜底起卦，因此 `public/` 目录可单独托管到任意静态空间（GitHub Pages / EdgeOne / OSS 等），只是 AI 解卦功能需要后端代理。
 
 ## 文件结构
 
