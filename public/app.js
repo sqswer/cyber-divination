@@ -705,14 +705,15 @@
     ctx.font = '400 19px "PingFang SC",sans-serif';
     wrapText(ctx, lastSentence(sum.text), 60, sy + 34, W - 120, 30);
 
-    // 断卦例法提示
+    // 断卦例法提示（自行计算，避免依赖 state.result.judge 是否附加）
+    var judge = (r.judge && r.judge.text) ? r.judge : window.Divine.judgeRule(r);
     var ry = sy + 110;
     ctx.fillStyle = '#e9c46a';
     ctx.font = '600 15px "PingFang SC",sans-serif';
     ctx.fillText('主断', 60, ry);
     ctx.fillStyle = '#dbe6f6';
     ctx.font = '400 16px "PingFang SC",sans-serif';
-    wrapText(ctx, r.judge.text + ' —— ' + r.judge.focus, 60, ry + 32, W - 120, 26);
+    wrapText(ctx, judge.text + ' —— ' + judge.focus, 60, ry + 32, W - 120, 26);
 
     // 页脚
     ctx.textAlign = 'center';
