@@ -24,7 +24,8 @@
   var state = {
     result: null,     // 当前卦象结果
     question: '',
-    aiBusy: false
+    aiBusy: false,
+    aiText: ''        // 最近一次 AI 解卦正文，供分享卡引用
   };
 
   /* ───────────────────────────────────────────── 小工具 */
@@ -420,11 +421,13 @@
       $('#huFold').hidden = true;
     }
 
-    // 重置 AI 面板
+    // 重置 AI 面板（新卦象不能带着上一卦的解读）
     $('#aiOutput').hidden = true;
     $('#aiText').innerHTML = '';
     $('#aiBtn').disabled = false;
     $('#aiBtn').querySelector('.btn-label').textContent = '结合所问之事 · 独立分析';
+    state.aiText = '';
+    refreshShareHint();
 
     updatePromptBox();
 
@@ -469,6 +472,17 @@
     if (!p) { $('#promptBox').hidden = true; return; }
     $('#promptBox').hidden = false;
     $('#promptText').textContent = previewPrompt(p);
+  }
+
+  /* 分享按钮文案随「有没有 AI 解读」变化，让人一眼知道卡片会不会带解读。
+   * 定义在顶层作用域：render() 与 AI 解卦结束时都要调用。 */
+  function refreshShareHint() {
+    var sb = $('#shareBtn');
+    if (!sb) return;
+    // 只改文字，别动按钮内部的 icon/label 结构
+    var lab = sb.querySelector('.btn-label');
+    if (lab) lab.textContent = state.aiText ? '分享我的卦象（含 AI 解读）' : '分享我的卦象';
+    sb.title = state.aiText ? '生成卦象分享卡（含本次 AI 解读）' : '生成卦象分享卡';
   }
 
   /* ───────────────────────────────────────────── AI 解卦 */
@@ -516,11 +530,19 @@
         var acc = '';
         var started = false;
         var notice = '';
+        var thinkChars = 0;   // 模型已推演字数（推理模型思考期的进度）
+        var t0 = Date.now();
 
         function paint() {
           if (!started) {
-            txt.innerHTML = '<div class="ai-thinking"><i></i><i></i><i></i>' +
-                            '正在揣摩卦象，请稍候……</div>';
+            /* 推理模型（DeepSeek-R1 等）会先思考十几秒到几十秒才开口。
+             * 思考内容不展示，但把「已推演字数 + 已等待秒数」显示出来，
+             * 让人看得见它在动，而不是怀疑卡死了。 */
+            var secs = Math.floor((Date.now() - t0) / 1000);
+            var tip = thinkChars > 0
+              ? '正在推演卦象……已推演 ' + thinkChars + ' 字 · ' + secs + 's'
+              : '正在揣摩卦象，请稍候……' + (secs > 3 ? ' ' + secs + 's' : '');
+            txt.innerHTML = '<div class="ai-thinking"><i></i><i></i><i></i>' + tip + '</div>';
             return;
           }
           txt.innerHTML = renderAI(acc) + '<span class="caret"></span>';
@@ -543,6 +565,8 @@
                 if (j.error)       { acc += '\n\n【出错】' + j.error; started = true; }
                 else if (j.notice) { notice = j.notice; }
                 else if (j.delta)  { acc += j.delta; started = true; }
+                else if (j.phase === 'thinking') { thinkChars = j.chars || 0; }
+                else if (j.phase === 'connected') { /* 通道已开，等模型开口 */ }
                 else if (j.done)   { /* 结束帧 */ }
               } catch (e) { /* 忽略坏帧 */ }
             });
@@ -553,11 +577,23 @@
 
         function finish() {
           if (!acc) {
-            txt.innerHTML = '<div class="ai-empty">' +
-              esc(notice || '模型未返回内容，请点「重新分析」再试一次。') + '</div>';
+            /* 到这里仍然一个字都没有：多半是连接被中途掐断（网关 idle timeout）
+             * 或模型确实没吐字。若思考期收到过进度帧，就说明模型其实在动，
+             * 提示语要说清楚，别让人以为是自己点错了。 */
+            var why = notice;
+            if (!why) {
+              why = thinkChars > 0
+                ? '模型推演了 ' + thinkChars + ' 字但连接中断，未收到结论。请点「重新分析」再试一次。'
+                : '模型未返回内容，请点「重新分析」再试一次。';
+            }
+            txt.innerHTML = '<div class="ai-empty">' + esc(why) + '</div>';
+            state.aiText = '';
           } else {
             txt.innerHTML = renderAI(acc);
+            // 存下 AI 正文，供「分享我的卦象」把解读一并画进卡片
+            state.aiText = acc;
           }
+          refreshShareHint();
           state.aiBusy = false;
           btn.disabled = false;
           btn.querySelector('.btn-label').textContent = '重新分析';
@@ -604,12 +640,82 @@
     }
   }
 
+  /* 把 AI 解卦正文洗成适合画进卡片的纯文本：
+   * 去掉 markdown 记号与分隔线，压掉多余空行，超长则按段落截断并留省略号。 */
+  function aiDigest(text, maxChars) {
+    var s = String(text || '')
+      .replace(/```[\s\S]*?```/g, '')      // 代码块
+      .replace(/^\s*#{1,6}\s*/gm, '')      // 标题井号
+      .replace(/^\s*[-*_]{3,}\s*$/gm, '')  // 分隔线
+      .replace(/\*\*([^*]+)\*\*/g, '$1')   // 粗体
+      .replace(/\*([^*]+)\*/g, '$1')       // 斜体
+      .replace(/^\s*[-*+]\s+/gm, '· ')     // 列表项
+      .replace(/[ \t]+$/gm, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+    if (s.length <= maxChars) return s;
+    // 超长：尽量在段落边界截断，读起来不突兀
+    var cut = s.slice(0, maxChars);
+    var lastBreak = Math.max(cut.lastIndexOf('\n'), cut.lastIndexOf('。'), cut.lastIndexOf('；'));
+    if (lastBreak > maxChars * 0.6) cut = s.slice(0, lastBreak + 1);
+    return cut.trim() + '……';
+  }
+
+  /* 只测量不绘制：算出 wrapText 在给定宽度下会占多少行，用于动态定卡片高度。 */
+  function measureLines(ctx, text, maxW) {
+    text = String(text || '');
+    var lines = 0, line = '';
+    for (var i = 0; i < text.length; i++) {
+      if (text[i] === '\n') { lines++; line = ''; continue; }
+      var test = line + text[i];
+      if (ctx.measureText(test).width > maxW && line) { lines++; line = text[i]; }
+      else line = test;
+    }
+    if (line) lines++;
+    return lines || 1;
+  }
+
   function buildShareCard() {
     var r = state.result;
     if (!r) return;
 
     var SITE = '赛博卜卦 · Cyber Divination';
-    var W = 720, H = 1120;
+    var W = 720;
+    var PAD = 60, CONTENT_W = W - PAD * 2, LH = 26;
+
+    /* ── 先排版算高，再建画布 ──────────────────────────────
+     * 卡片内容是变长的（有无变卦/互卦、有无 AI 解读、解读长短都不同），
+     * 固定高度必然出现大片空白或被截断。故先用一个离屏 ctx 量出各段行数，
+     * 得到精确总高后再创建真正的画布。 */
+    var probe = document.createElement('canvas').getContext('2d');
+
+    var sum = window.Divine.plainSummary(r);
+    var sumItems = (sum.items || []).filter(function (it) { return it.label !== '一句话记住'; });
+    var sumText = sumItems.map(function (it) { return '【' + it.label + '】' + it.text; }).join('\n');
+
+    var judge = (r.judge && r.judge.text) ? r.judge : window.Divine.judgeRule(r);
+    var judgeText = judge.text + ' —— ' + judge.focus;
+
+    var aiText = aiDigest(state.aiText, 620);
+
+    probe.font = '400 16px "PingFang SC",sans-serif';
+    var sumLines = measureLines(probe, sumText, CONTENT_W);
+    var judgeLines = measureLines(probe, judgeText, CONTENT_W);
+    probe.font = '400 15px "PingFang SC",sans-serif';
+    var aiLines = aiText ? measureLines(probe, aiText, CONTENT_W) : 0;
+
+    var cardY = 130, cardH = 300;
+    var SEC_GAP = 34;                      // 段落之间的间距
+    var HEAD_H = 30;                       // 小标题到正文的距离
+    var y = cardY + cardH + SEC_GAP;       // 三宫卦象之后的起始 y
+    var ySum = y;
+    y += HEAD_H + sumLines * LH + SEC_GAP;
+    var yAi = aiText ? y : 0;
+    if (aiText) y += HEAD_H + aiLines * 24 + SEC_GAP;
+    var yJudge = y;
+    y += HEAD_H + judgeLines * LH;
+    var H = y + 80;                        // 页脚区
+
     var cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     var ctx = cv.getContext('2d');
@@ -646,7 +752,6 @@
     var cw = 200, gap = 20;
     var totalW = cards.length * cw + (cards.length - 1) * gap;
     var startX = (W - totalW) / 2;
-    var cardY = 130, cardH = 300;
 
     cards.forEach(function (c, k) {
       var cx = startX + k * (cw + gap);
@@ -674,28 +779,37 @@
       miniHex(ctx, cx + cw / 2 - 48, cardY + cardH - 30, c.lines, c.mv, 96, 150);
     });
 
-    // 简要总结（取 plainSummary 各项，排除末尾「一句话记住」）
-    var sum = window.Divine.plainSummary(r);
-    var sumItems = (sum.items || []).filter(function (it) { return it.label !== '一句话记住'; });
-    var sumText = sumItems.map(function (it) { return '【' + it.label + '】' + it.text; }).join('\n');
+    // 小标题的统一画法
+    function sectionHead(label, color, yy) {
+      ctx.fillStyle = color;
+      ctx.font = '600 15px "PingFang SC",sans-serif';
+      ctx.fillText(label, PAD, yy);
+    }
+
     ctx.textAlign = 'left';
-    var sy = cardY + cardH + 40;
-    ctx.fillStyle = '#00e5ff';
-    ctx.font = '600 15px "PingFang SC",sans-serif';
-    ctx.fillText('简要总结', 60, sy);
+
+    // 简要总结（取 plainSummary 各项，排除末尾「一句话记住」）
+    sectionHead('简要总结', '#00e5ff', ySum);
     ctx.fillStyle = '#dbe6f6';
     ctx.font = '400 16px "PingFang SC",sans-serif';
-    wrapText(ctx, sumText, 60, sy + 30, W - 120, 26);
+    wrapText(ctx, sumText, PAD, ySum + HEAD_H, CONTENT_W, LH);
+
+    // AI 解读（仅在本次真的拿到模型结果时出现）
+    if (aiText) {
+      sectionHead('AI 解读', '#b892ff', yAi);
+      ctx.fillStyle = '#9fb0cc';
+      ctx.font = '400 12px "PingFang SC",sans-serif';
+      ctx.fillText('结合所问之事的独立分析', PAD + 78, yAi);
+      ctx.fillStyle = '#e4ecfa';
+      ctx.font = '400 15px "PingFang SC",sans-serif';
+      wrapText(ctx, aiText, PAD, yAi + HEAD_H, CONTENT_W, 24);
+    }
 
     // 断卦例法提示（自行计算，避免依赖 state.result.judge 是否附加）
-    var judge = (r.judge && r.judge.text) ? r.judge : window.Divine.judgeRule(r);
-    var ry = sy + 290;
-    ctx.fillStyle = '#e9c46a';
-    ctx.font = '600 15px "PingFang SC",sans-serif';
-    ctx.fillText('主断', 60, ry);
+    sectionHead('主断', '#e9c46a', yJudge);
     ctx.fillStyle = '#dbe6f6';
     ctx.font = '400 16px "PingFang SC",sans-serif';
-    wrapText(ctx, judge.text + ' —— ' + judge.focus, 60, ry + 32, W - 120, 26);
+    wrapText(ctx, judgeText, PAD, yJudge + HEAD_H, CONTENT_W, LH);
 
     // 页脚
     ctx.textAlign = 'center';
