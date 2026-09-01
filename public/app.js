@@ -34,6 +34,36 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  /* 把大模型的输出做个轻量排版：【小标题】提为标题，数字条目成列表，
+   * 其余成段。不做完整 Markdown，只为读起来清爽。 */
+  function renderAI(s) {
+    var html = '';
+    var inList = false;
+    function closeList() { if (inList) { html += '</div>'; inList = false; } }
+
+    String(s == null ? '' : s).split('\n').forEach(function (raw) {
+      var line = raw.trim();
+      if (!line) { closeList(); return; }
+
+      var h = line.match(/^【\s*([^】]{1,20})\s*】\s*(.*)$/);
+      if (h) {
+        closeList();
+        html += '<div class="ai-h">' + esc(h[1]) + '</div>';
+        if (h[2]) html += '<div class="ai-p">' + esc(h[2]) + '</div>';
+        return;
+      }
+      if (/^\d+\s*[\.、]/.test(line) || /^[-•·]\s*/.test(line)) {
+        if (!inList) { html += '<div class="ai-ul">'; inList = true; }
+        html += '<div class="ai-li">' + esc(line.replace(/^[-•·]\s*/, '')) + '</div>';
+        return;
+      }
+      closeList();
+      html += '<div class="ai-p">' + esc(line) + '</div>';
+    });
+    closeList();
+    return html;
+  }
+
   function toast(msg) {
     var old = $('.toast');
     if (old) old.remove();
@@ -82,10 +112,38 @@
       '</div>';
   }
 
+  /* 掷钱明细：六爻各掷三枚铜钱的正反、记分与爻性（自下而上，即掷钱先后） */
+  function coinDetailHtml(r) {
+    var rows = r.tosses.map(function (t, i) {
+      var faces = window.Divine.coinFaces(t, t * 7919 + i * 104729 + 13);
+      var isM = (t === 6 || t === 9);
+      return '<div class="cd-row' + (isM ? ' is-mv' : '') + '">' +
+               '<span class="cd-pos">' + POS_NAME[i] + '爻</span>' +
+               '<span class="cd-coins">' + faces.map(function (f) {
+                 return '<i class="cd-coin ' + (f.yang ? 'back' : 'word') + '">' + f.face + '</i>';
+               }).join('') + '</span>' +
+               '<span class="cd-math">' +
+                 faces.map(function (f) { return f.point; }).join(' + ') +
+                 ' = <b>' + t + '</b>' +
+               '</span>' +
+               '<span class="cd-name">' + COIN_NAME[t] + '</span>' +
+               '<span class="cd-mark">' + (isM ? '动' : '静') + '</span>' +
+             '</div>';
+    }).join('');
+
+    return '<div class="cd-row cd-head">' +
+             '<span>爻位</span><span>三枚铜钱</span><span>记分</span><span>爻性</span><span>动静</span>' +
+           '</div>' + rows +
+      '<p class="cd-tip">按掷钱先后自下而上：先得初爻，最后得上爻。' +
+      '背（有图纹的一面）记 3 分，字（有字面）记 2 分，三枚相加得 6 / 7 / 8 / 9 —— ' +
+      '6 为老阴、9 为老阳，物极必反，是为动爻；7 为少阳、8 为少阴，安静不动。</p>';
+  }
+
   /* ───────────────────────────────────────────── 起卦
-   * 刻意放慢：六爻逐爻浮现，每爻间隔 STEP_MS，最后一爻后略作停顿，
-   * 全程约 2.5 秒，保留「掷钱成卦」的仪式感。 */
-  var STEP_MS = 330;
+   * 每爻分两步：先摇三枚铜钱，再落定记分，最后爻条浮现。
+   * 六爻走完约 3.9 秒，保留「掷钱成卦」的仪式感。 */
+  var TOSS_MS = 300;   // 铜钱翻转时间
+  var HOLD_MS = 270;   // 落定后停留时间
 
   function cast(tosses) {
     var btn = $('#castBtn');
@@ -134,6 +192,31 @@
       });
   }
 
+  var COIN_NOTE = {
+    6: '三枚皆字 · 阴极生阳，动而变阳',
+    7: '一背两字 · 阳爻安静不动',
+    8: '两背一字 · 阴爻安静不动',
+    9: '三枚皆背 · 阳极生阴，动而变阴'
+  };
+
+  /* 设置铜钱托盘：faces 为空表示正在翻转 */
+  function setCoins(faces, flipping) {
+    $$('#coinTray .ct-coin').forEach(function (c, k) {
+      var faceEl = c.querySelector('.ct-face');
+      var tagEl = c.querySelector('.ct-tag');
+      if (flipping || !faces) {
+        c.className = 'ct-coin rolling';
+        faceEl.textContent = '☯';
+        tagEl.textContent = '摇';
+      } else {
+        var f = faces[k];
+        c.className = 'ct-coin ' + (f.yang ? 'is-back' : 'is-word') + ' settle';
+        faceEl.textContent = f.face;
+        tagEl.textContent = f.point + ' 分';
+      }
+    });
+  }
+
   function resetStage() {
     var box = $('#castPending');
     box.innerHTML = '';
@@ -143,27 +226,60 @@
       box.appendChild(d);
     }
     $('#stageText').innerHTML = '';
+    $('#coinMath').innerHTML = '<span class="dim">背记 3 分 · 字记 2 分</span>';
+    $('#stageStep').textContent = '准备';
+    $('#stagePos').textContent = '静心默想所问之事';
+    setCoins(null, true);
   }
 
-  /* 逐爻浮现 */
+  /* 逐爻掷钱：摇 → 落定 → 记分成爻 */
   function playToss(res, done) {
     var seeds = $$('#castPending .seed');
     var i = 0;
-    (function step() {
-      if (i >= 6) {
-        $('#stageText').innerHTML = '六爻已成 · <b>正在排卦…</b>';
-        setTimeout(done, 560);
-        return;
-      }
-      var t = res.tosses[i];
+
+    function roll() {
+      if (i >= 6) { settleAll(); return; }
+
+      $('#stageStep').textContent = '第 ' + (i + 1) + ' / 6 爻';
+      $('#stagePos').textContent = POS_NAME[i] + '爻';
+      setCoins(null, true);
+      $('#coinMath').innerHTML = '<span class="dim">三枚在手，摇之……</span>';
+      $('#stageText').innerHTML = '';
+
+      setTimeout(function () { land(i++); }, TOSS_MS);
+    }
+
+    function land(idx) {
+      var t = res.tosses[idx];
+      // 种子化：同一爻每次展示的正反次序稳定，不会来回跳
+      var faces = window.Divine.coinFaces(t, t * 7919 + idx * 104729 + 13);
       var isM = (t === 6 || t === 9);
+
+      setCoins(faces, false);
+      $('#coinMath').innerHTML =
+        faces.map(function (f) {
+          return '<b class="' + (f.yang ? 'm-yang' : 'm-yin') + '">' + f.face + ' ' + f.point + '</b>';
+        }).join('<i class="m-op">+</i>') +
+        '<i class="m-op">=</i><b class="m-sum' + (isM ? ' is-mv' : '') + '">' + t + '</b>';
+
       $('#stageText').innerHTML =
-        '第 ' + (i + 1) + ' 爻 · <b>' + POS_NAME[i] + '爻</b>　掷得 <b>' + COIN_NAME[t] + '</b>' +
-        (isM ? '　<span style="color:var(--rose)">动爻</span>' : '');
-      seeds[i].className = 'seed ' + ((t === 7 || t === 9) ? 'yang' : 'yin') + (isM ? ' mv' : '') + ' pop';
-      i++;
-      setTimeout(step, STEP_MS);
-    })();
+        '<b class="' + (isM ? 'is-mv' : '') + '">' + COIN_NAME[t] + '</b>' +
+        '<span class="dim">　' + COIN_NOTE[t] + '</span>';
+
+      seeds[idx].className = 'seed ' + ((t === 7 || t === 9) ? 'yang' : 'yin') + (isM ? ' mv' : '') + ' pop';
+
+      setTimeout(roll, HOLD_MS);
+    }
+
+    function settleAll() {
+      $('#stageStep').textContent = '六爻已成';
+      $('#stagePos').textContent = '成卦';
+      $('#coinMath').innerHTML = '<span class="dim">自下而上 · 初爻在下，上爻在顶</span>';
+      $('#stageText').innerHTML = '正在排卦……';
+      setTimeout(done, 520);
+    }
+
+    roll();
   }
 
   function finishCast(btn, coins, stage) {
@@ -229,21 +345,29 @@
     $('#judgeRule').innerHTML =
       '<div><b>' + esc(r.judge.text) + '</b></div><div>' + esc(r.judge.focus) + '</div>';
 
+    // 简要总结：白话，先给结论（不堆术语）
+    var sum = window.Divine.plainSummary(r);
+    $('#sumHead').textContent = sum.head;
+    $('#summary').innerHTML = sum.html;
+
+    // 掷钱明细：六爻各掷三枚的正反与记分
+    $('#coinDetailBody').innerHTML = coinDetailHtml(r);
+
+    // 每次起卦都把折叠区收回去，保持结果页干净
+    $('#deepPanel').open = false;
+    $('#coinDetail').open = false;
+
     // 为何变卦（本卦 / 变卦的来由，讲清「不是因为不当位」）
-    $('#whyBianPanel').hidden = false;
     $('#whyBian').innerHTML =
       '<h4>' + (r.moving.length ? '本次为何会有变卦' : '本次为何没有变卦') + '</h4>' +
       '<div>' + esc(window.Divine.explainMoving(r)) + '</div>';
 
     // 三卦关系：本卦 → 变卦 → 互卦 的来龙去脉
-    $('#relationPanel').hidden = false;
     $('#relation').innerHTML = window.Divine.relationInfo(r).html;
 
     // 本卦详解
-    $('#benPanel').innerHTML =
-      '<div class="panel-head"><h2>本卦详解</h2>' +
-      '<span class="panel-sub">' + esc(r.ben.full) + '</span></div>' +
-      guaBlock(r.ben, '主断所依');
+    $('#benSub').textContent = r.ben.full;
+    $('#benPanel').innerHTML = guaBlock(r.ben, '主断所依');
 
     // 六爻详解：爻辞 / 小象传 / 爻位 / 精解
     var yl = '';
@@ -267,24 +391,20 @@
 
     // 变卦详解
     if (r.bian) {
-      $('#bianPanel').hidden = false;
-      $('#bianPanel').innerHTML =
-        '<div class="panel-head"><h2>变卦详解</h2>' +
-        '<span class="panel-sub">' + esc(r.bian.full) + '　由 ' + r.moving.length + ' 个动爻变来</span></div>' +
-        guaBlock(r.bian, '趋势所往');
+      $('#bianFold').hidden = false;
+      $('#bianSub').textContent = r.bian.full + '　由 ' + r.moving.length + ' 个动爻变来';
+      $('#bianPanel').innerHTML = guaBlock(r.bian, '趋势所往');
     } else {
-      $('#bianPanel').hidden = true;
+      $('#bianFold').hidden = true;
     }
 
     // 互卦详解
     if (r.hu) {
-      $('#huPanel').hidden = false;
-      $('#huPanel').innerHTML =
-        '<div class="panel-head"><h2>互卦详解</h2>' +
-        '<span class="panel-sub">' + esc(r.hu.full) + '　二三四爻为下卦、三四五爻为上卦</span></div>' +
-        guaBlock(r.hu, '过程内情');
+      $('#huFold').hidden = false;
+      $('#huSub').textContent = r.hu.full + '　二三四爻为下卦、三四五爻为上卦';
+      $('#huPanel').innerHTML = guaBlock(r.hu, '过程内情');
     } else {
-      $('#huPanel').hidden = true;
+      $('#huFold').hidden = true;
     }
 
     // 重置 AI 面板
@@ -376,11 +496,23 @@
           });
         }
 
-        // 已配置 → SSE 流式
+        // 已配置 → SSE 流式（后端只下发正式回答，思考过程已过滤）
         var reader = resp.body.getReader();
         var dec = new TextDecoder('utf-8');
         var buf = '';
         var acc = '';
+        var started = false;
+        var notice = '';
+
+        function paint() {
+          if (!started) {
+            txt.innerHTML = '<div class="ai-thinking"><i></i><i></i><i></i>' +
+                            '正在揣摩卦象，请稍候……</div>';
+            return;
+          }
+          txt.innerHTML = renderAI(acc) + '<span class="caret"></span>';
+          out.scrollTop = out.scrollHeight;
+        }
 
         function pump() {
           return reader.read().then(function (step) {
@@ -395,24 +527,30 @@
               if (!payload) return;
               try {
                 var j = JSON.parse(payload);
-                if (j.error) { acc += '\n\n【出错】' + j.error; }
-                else if (j.delta) { acc += j.delta; }
-                else if (j.done) { /* 结束 */ }
+                if (j.error)       { acc += '\n\n【出错】' + j.error; started = true; }
+                else if (j.notice) { notice = j.notice; }
+                else if (j.delta)  { acc += j.delta; started = true; }
+                else if (j.done)   { /* 结束帧 */ }
               } catch (e) { /* 忽略坏帧 */ }
             });
-            txt.innerHTML = esc(acc) + '<span class="caret"></span>';
-            out.scrollTop = out.scrollHeight;
+            paint();
             return pump();
           });
         }
 
         function finish() {
-          txt.textContent = acc || '（模型未返回内容）';
+          if (!acc) {
+            txt.innerHTML = '<div class="ai-empty">' +
+              esc(notice || '模型未返回内容，请点「重新分析」再试一次。') + '</div>';
+          } else {
+            txt.innerHTML = renderAI(acc);
+          }
           state.aiBusy = false;
           btn.disabled = false;
           btn.querySelector('.btn-label').textContent = '重新分析';
         }
 
+        paint();  // 先亮出「正在揣摩」，首个字到达后自动换成正文
         return pump();
       })
       .catch(function (e) {

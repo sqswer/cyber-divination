@@ -40,15 +40,22 @@ function loadLLMConfig() {
     base: (process.env.LLM_API_BASE || file.base || 'https://api.deepseek.com/v1').replace(/\/+$/, ''),
     key: process.env.LLM_API_KEY || file.key || '',
     model: process.env.LLM_MODEL || file.model || 'deepseek-chat',
-    temperature: Number(process.env.LLM_TEMPERATURE || file.temperature || 0.7)
+    temperature: Number(process.env.LLM_TEMPERATURE || file.temperature || 0.7),
+    // 置 1 时，请求里带上 enable_thinking:false，让推理模型干脆别产出思考过程。
+    // 只有明确支持该参数的服务端才建议开启（不支持的会忽略或报错），默认关闭。
+    disableThinking: String(process.env.LLM_DISABLE_THINKING || file.disableThinking || '') === '1',
+    // 置 1 时把思考过程也一并发给前端（仅供排查问题，默认关闭）
+    showThinking: String(process.env.LLM_SHOW_THINKING || file.showThinking || '') === '1'
   };
 }
 
 const SYSTEM_PROMPT = [
-  '你是「赛博卜卦」的解卦顾问，深通《周易》的象、数、理与历代传注。',
-  '你的职责：依据给定的卦象资料（卦辞、大象传、小象传、爻辞、爻位分析），结合提问者所问之事，给出独立、审慎、有针对性的分析。',
-  '原则：不故弄玄虚、不语怪力乱神、不替提问者做决定；强调「时也、位也」，强调人的主观能动。',
-  '语言：简体中文，平实有分寸，允许有温度，避免空话套话。'
+  '你是「赛博卜卦」的解卦顾问，熟悉《周易》的象、数与历代传注。',
+  '你的职责：依据给定的卦象资料，结合提问者所问之事，给出独立、审慎、有针对性的分析。',
+  '表达要求：说人话。像一位有阅历的长辈当面聊天，平实、有分寸，不掉书袋。',
+  '尽量不用「当位、承乘、相应、得中」这类术语；非用不可时必须立刻用大白话解释一句。',
+  '不要复述你的思考过程，直接给结论和理由；不故弄玄虚，不宿命论断，不替提问者做决定。',
+  '语言：简体中文，篇幅宁短勿长。'
 ].join('');
 
 /* ---------------------------------------------------------------- 工具 */
@@ -180,7 +187,7 @@ async function aiInterpret(req, res, body) {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + cfg.key
       },
-      body: JSON.stringify({
+      body: JSON.stringify(Object.assign({
         model: cfg.model,
         stream: true,
         temperature: cfg.temperature,
@@ -188,7 +195,7 @@ async function aiInterpret(req, res, body) {
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: prompt }
         ]
-      })
+      }, cfg.disableThinking ? { chat_template_kwargs: { enable_thinking: false } } : {}))
     });
   } catch (e) {
     return sendError('无法连接大模型服务：' + e.message);
@@ -202,6 +209,10 @@ async function aiInterpret(req, res, body) {
 
   const decoder = new TextDecoder('utf-8');
   let buffer = '';
+  let finished = false;
+  let gotContent = false;
+  let sawReasoning = false;
+
   try {
     for await (const chunk of upstream.body) {
       buffer += decoder.decode(chunk, { stream: true });
@@ -211,20 +222,40 @@ async function aiInterpret(req, res, body) {
         const t = line.trim();
         if (!t || t.indexOf('data:') !== 0) continue;
         const payload = t.slice(5).trim();
-        if (payload === '[DONE]') { sse(res, { ok: true, done: true }); res.end(); return; }
+        if (payload === '[DONE]') { finished = true; break; }
         try {
           const json = JSON.parse(payload);
           const delta = json.choices && json.choices[0] && json.choices[0].delta;
-          // 兼容 DeepSeek-R1 等推理模型：思考在 reasoning_content、回答在 content，依次转发
-          if (delta && (delta.content || delta.reasoning_content)) {
-            sse(res, { ok: true, delta: delta.content || delta.reasoning_content });
+          if (!delta) continue;
+          /* 推理模型（DeepSeek-R1 等）把思考过程放在 reasoning_content，
+           * 正式回答放在 content。产品上只展示回答，不展示思考过程，
+           * 因此这里默认把 reasoning_content 拦下，不下发给前端。 */
+          if (delta.reasoning_content) {
+            sawReasoning = true;
+            if (cfg.showThinking) sse(res, { ok: true, delta: delta.reasoning_content });
+          }
+          if (delta.content) {
+            sse(res, { ok: true, delta: delta.content });
+            gotContent = true;
           }
         } catch (e) { /* 忽略无法解析的片段 */ }
       }
+      if (finished) break;
     }
   } catch (e) {
     return sendError('读取大模型响应失败：' + e.message);
   }
+
+  // 一个字都没吐出来 —— 给前端一句人话，而不是让它干巴巴显示「未返回内容」
+  if (!gotContent) {
+    sse(res, {
+      ok: false,
+      notice: sawReasoning
+        ? '模型这一次只顾着思考，没有给出正式回答。点「重新分析」再试一次即可。'
+        : '模型未返回内容，请点「重新分析」再试一次。'
+    });
+  }
+
   sse(res, { ok: true, done: true });
   res.end();
 }

@@ -410,7 +410,7 @@ textarea::placeholder, input::placeholder { color: #4c5a72; }
   border-radius: var(--r-s);
   max-height: 620px; overflow-y: auto;
 }
-.ai-text { font-size: 14.5px; line-height: 2; white-space: pre-wrap; word-break: break-word; }
+.ai-text { font-size: 14.5px; line-height: 1.95; word-break: break-word; }
 .ai-text .caret {
   display: inline-block; width: 8px; height: 16px;
   background: var(--gold); vertical-align: text-bottom;
@@ -627,7 +627,7 @@ textarea::placeholder, input::placeholder { color: #4c5a72; }
   position: absolute; left: 12px; top: 12px;
   width: 26px; height: 26px; border-radius: 50%;
   display: grid; place-items: center;
-  font-size: 12px; font-weight: 700; color: var(--bg-0);
+  font-size: 12px; font-weight: 700; color: var(--bg);
   background: var(--cyan); box-shadow: 0 0 12px rgba(0,229,255,.5);
 }
 .rel-h { font-size: 12.5px; letter-spacing: .12em; color: var(--cyan); margin-bottom: 5px; }
@@ -664,6 +664,254 @@ textarea::placeholder, input::placeholder { color: #4c5a72; }
   60%  { opacity: 1; transform: scaleX(1.08); }
   100% { transform: scaleX(1); }
 }
+
+/* ── 掷钱过程：铜钱托盘 ─────────────────────────────────── */
+.dim { color: var(--dim); }
+
+.stage-head {
+  display: flex; align-items: baseline; justify-content: center; gap: 10px;
+  margin-bottom: 12px;
+}
+.stage-step {
+  font-family: var(--mono); font-size: 11.5px; letter-spacing: .1em;
+  color: var(--cyan); border: 1px solid rgba(0,229,255,.32);
+  border-radius: 20px; padding: 1px 10px;
+}
+.stage-pos { font-size: 12.5px; color: var(--dim); letter-spacing: .14em; }
+
+.coin-tray {
+  display: flex; justify-content: center; gap: 14px;
+  margin: 2px 0 12px;
+}
+.ct-coin {
+  width: 54px; height: 54px; border-radius: 50%;
+  display: grid; place-items: center; position: relative;
+  background: radial-gradient(circle at 32% 26%, #f7e6b0, #c9a143 60%, #8a6a20);
+  border: 1.5px solid rgba(255,255,255,.32);
+  box-shadow: 0 0 16px rgba(233,196,106,.38), inset 0 -3px 7px rgba(0,0,0,.32);
+}
+.ct-face {
+  font-size: 20px; font-weight: 800; line-height: 1; color: #4d3806;
+}
+.ct-tag {
+  position: absolute; bottom: -19px; left: 50%; transform: translateX(-50%);
+  font-size: 10.5px; font-style: normal; letter-spacing: .06em;
+  color: var(--dim); white-space: nowrap;
+}
+
+/* 翻转中 */
+.ct-coin.rolling { animation: ctFlip .3s linear infinite; }
+.ct-coin.rolling .ct-face { animation: ctSpin .3s linear infinite; }
+@keyframes ctFlip {
+  0%   { transform: translateY(0)     scale(1); }
+  50%  { transform: translateY(-15px) scaleX(.28); }
+  100% { transform: translateY(0)     scale(1); }
+}
+@keyframes ctSpin { to { transform: rotate(360deg); } }
+
+/* 已落定 */
+.ct-coin.settle { animation: ctDrop .26s cubic-bezier(.2,1.5,.4,1) both; }
+.ct-coin.is-back {
+  background: radial-gradient(circle at 32% 26%, #fff6d8, #e0b84c 58%, #8a6a20);
+  box-shadow: 0 0 20px rgba(233,196,106,.6), inset 0 -3px 7px rgba(0,0,0,.3);
+}
+.ct-coin.is-word {
+  background: radial-gradient(circle at 32% 26%, #cfd9ea, #7f8ea8 58%, #3d4757);
+  box-shadow: 0 0 18px rgba(127,142,168,.42), inset 0 -3px 7px rgba(0,0,0,.34);
+}
+.ct-coin.is-word .ct-face { color: #1d2430; }
+@keyframes ctDrop {
+  0%   { transform: translateY(-14px) scale(1.12); }
+  100% { transform: none; }
+}
+
+/* 记分 */
+.coin-math {
+  margin: 20px 0 10px; min-height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; flex-wrap: wrap;
+  font-size: 13.5px; color: var(--dim);
+}
+.coin-math b { font-weight: 700; }
+.coin-math .m-yang { color: var(--gold); }
+.coin-math .m-yin  { color: var(--txt-2); }
+.coin-math .m-op   { font-style: normal; color: var(--dim); margin: 0 2px; }
+.coin-math .m-sum  { font-size: 17px; color: var(--gold); }
+.coin-math .m-sum.is-mv { color: var(--rose); text-shadow: 0 0 12px rgba(255,77,141,.5); }
+
+.cast-stage .stage-text b.is-mv { color: var(--rose); }
+
+/* ── 简要总结（白话） ───────────────────────────────────── */
+.summary { display: grid; gap: 11px; }
+.sum-item {
+  padding: 12px 15px;
+  background: rgba(4,8,16,.42);
+  border: 1px solid var(--line-soft);
+  border-left: 3px solid rgba(0,229,255,.45);
+  border-radius: 0 var(--r-s) var(--r-s) 0;
+}
+.sum-item:last-child {
+  border-left-color: rgba(233,196,106,.6);
+  background: linear-gradient(100deg, rgba(233,196,106,.09), rgba(4,8,16,.42) 60%);
+}
+.sum-l {
+  font-size: 11.5px; letter-spacing: .16em; color: var(--cyan);
+  margin-bottom: 5px;
+}
+.sum-item:last-child .sum-l { color: var(--gold); }
+.sum-t { font-size: 14.5px; line-height: 1.95; color: var(--txt); }
+
+/* ── 折叠面板（深入参详 / 速查 / 掷钱明细） ─────────────── */
+.fold-panel { padding: 0; overflow: hidden; }
+.fold-summary {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  padding: 16px 20px; cursor: pointer; user-select: none;
+  list-style: none;
+  transition: background .16s;
+}
+.fold-summary::-webkit-details-marker { display: none; }
+.fold-summary::after {
+  content: '＋'; margin-left: auto; color: var(--dim);
+  font-size: 15px; line-height: 1;
+}
+.fold-panel[open] .fold-summary::after { content: '－'; color: var(--cyan); }
+.fold-summary:hover { background: rgba(255,255,255,.03); }
+.fold-title {
+  font-size: 16px; font-weight: 700; letter-spacing: .1em;
+  position: relative; padding-left: 14px;
+}
+.fold-title::before {
+  content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  width: 4px; height: 15px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--cyan), var(--gold));
+}
+.fold-sub { font-size: 12px; color: var(--dim); }
+
+/* 深入参详里的二级折叠 */
+.deep-wrap { padding: 0 20px 18px; display: grid; gap: 9px; }
+.sub-fold {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-s);
+  background: rgba(4,8,16,.32);
+  overflow: hidden;
+}
+.sub-summary {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding: 11px 15px; cursor: pointer; user-select: none;
+  list-style: none; font-size: 14px; font-weight: 600; color: var(--txt);
+  transition: background .16s, color .16s;
+}
+.sub-summary::-webkit-details-marker { display: none; }
+.sub-summary::after {
+  content: '＋'; margin-left: auto; color: var(--dim); font-size: 13px;
+}
+.sub-fold[open] .sub-summary::after { content: '－'; color: var(--cyan); }
+.sub-fold[open] .sub-summary { color: var(--cyan); border-bottom: 1px solid var(--line-soft); }
+.sub-summary:hover { background: rgba(255,255,255,.04); }
+.sub-summary em {
+  font-style: normal; font-weight: 400;
+  font-size: 11.5px; color: var(--dim);
+}
+.sub-fold > div, .sub-fold > ol { padding: 15px; }
+
+/* ── 掷钱明细 ───────────────────────────────────────────── */
+.coin-detail { padding: 4px 20px 18px; }
+.cd-row {
+  display: grid;
+  grid-template-columns: 52px 118px 96px 1fr 40px;
+  gap: 10px; align-items: center;
+  padding: 9px 12px;
+  border-radius: 7px;
+  font-size: 13px; color: var(--txt-2);
+}
+.cd-row + .cd-row { margin-top: 5px; }
+.cd-head {
+  background: rgba(255,255,255,.04);
+  font-size: 11px; letter-spacing: .14em; color: var(--dim);
+  padding: 6px 12px;
+}
+.cd-row:not(.cd-head) { background: rgba(4,8,16,.42); border: 1px solid var(--line-soft); }
+.cd-row.is-mv {
+  background: linear-gradient(96deg, rgba(255,77,141,.10), rgba(4,8,16,.42) 60%);
+  border-color: rgba(255,77,141,.34);
+}
+.cd-pos { color: var(--txt); font-weight: 600; }
+.cd-coins { display: flex; gap: 5px; }
+.cd-coin {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-style: normal; font-size: 13px; font-weight: 700; color: #3a2c05;
+  background: radial-gradient(circle at 32% 26%, #f7e6b0, #c9a143 62%, #8a6a20);
+  box-shadow: inset 0 -2px 4px rgba(0,0,0,.3);
+}
+.cd-coin.word {
+  background: radial-gradient(circle at 32% 26%, #cfd9ea, #7f8ea8 62%, #3d4757);
+  color: #1d2430;
+}
+.cd-math { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+.cd-math b { color: var(--gold); font-size: 14px; }
+.cd-row.is-mv .cd-math b { color: var(--rose); }
+.cd-name { font-size: 13px; }
+.cd-row.is-mv .cd-name { color: #ffd8e6; }
+.cd-mark { text-align: center; font-size: 12px; color: var(--dim); }
+.cd-row.is-mv .cd-mark { color: var(--rose); font-weight: 700; }
+.cd-tip {
+  margin: 12px 0 0; padding: 10px 13px;
+  font-size: 12.5px; line-height: 1.9; color: var(--dim);
+  background: rgba(4,8,16,.35);
+  border-left: 2px solid var(--line-soft);
+  border-radius: 0 6px 6px 0;
+}
+
+@media (max-width: 620px) {
+  .cd-row { grid-template-columns: 44px 1fr; gap: 6px 10px; }
+  .cd-head { display: none; }
+  .cd-math, .cd-name, .cd-mark { grid-column: 2; }
+  .cd-mark { text-align: left; }
+}
+
+/* ── AI 输出排版 ────────────────────────────────────────── */
+.ai-h {
+  margin: 16px 0 7px; font-size: 12px; font-weight: 700;
+  letter-spacing: .18em; color: var(--gold);
+  padding-left: 11px; border-left: 3px solid var(--gold);
+}
+.ai-h:first-child { margin-top: 0; }
+.ai-p { font-size: 14.5px; line-height: 1.95; margin-bottom: 6px; }
+.ai-ul {
+  margin: 4px 0 8px; padding: 10px 13px;
+  background: rgba(0,229,255,.05);
+  border-left: 2px solid rgba(0,229,255,.45);
+  border-radius: 0 7px 7px 0;
+  display: grid; gap: 6px;
+}
+.ai-li { font-size: 14px; line-height: 1.9; color: #d6e6fb; }
+
+/* 思考中 / 空结果 */
+.ai-thinking {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 13.5px; color: var(--dim); letter-spacing: .06em;
+}
+.ai-thinking i {
+  width: 6px; height: 6px; border-radius: 50%; margin-right: 4px;
+  background: var(--gold); animation: dotPulse 1.1s ease-in-out infinite;
+}
+.ai-thinking i:nth-child(2) { animation-delay: .16s; }
+.ai-thinking i:nth-child(3) { animation-delay: .32s; }
+@keyframes dotPulse {
+  0%, 100% { opacity: .25; transform: translateY(0); }
+  50%      { opacity: 1;   transform: translateY(-4px); }
+}
+.ai-empty {
+  font-size: 13.5px; line-height: 1.9; color: var(--gold);
+  padding: 10px 13px; border-radius: 7px;
+  background: rgba(233,196,106,.08);
+  border-left: 2px solid var(--gold);
+}
+
+/* 速查：折叠后搜索框留出上边距 */
+.hex-wrap { padding: 0 20px 20px; }
+.hex-wrap .search { margin: 13px 0 14px; }
 
 /* 滚动条 */
 ::-webkit-scrollbar { width: 9px; height: 9px; }

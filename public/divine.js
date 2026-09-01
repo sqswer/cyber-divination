@@ -70,6 +70,112 @@
     };
   }
 
+  /* 由一爻的数值反推三枚铜钱的正反与记分
+   *   背（阳）记 3 分，字（阴）记 2 分，三枚相加即该爻之数：
+   *     6 = 字字字(2+2+2) ｜ 7 = 一背两字(3+2+2)
+   *     8 = 两背一字(3+3+2) ｜ 9 = 背背背(3+3+3)
+   *   7 / 8 时三枚的先后次序本无所谓，这里用种子化的伪随机打乱，
+   *   既贴近真实掷钱的手感，又保证同一爻每次展示的结果稳定。 */
+  function coinFaces(t, seed) {
+    var s = (seed == null ? Math.floor(Math.random() * 2147483647) : seed) % 2147483647;
+    var r = function () { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
+
+    var points = (t === 6) ? [2, 2, 2]
+               : (t === 9) ? [3, 3, 3]
+               : (t === 7) ? [3, 2, 2]
+               :             [3, 3, 2];
+
+    for (var i = points.length - 1; i > 0; i--) {        // Fisher–Yates 洗牌
+      var j = Math.floor(r() * (i + 1));
+      var tmp = points[i]; points[i] = points[j]; points[j] = tmp;
+    }
+    return points.map(function (p) {
+      return { point: p, face: p === 3 ? '背' : '字', yang: p === 3 };
+    });
+  }
+
+  /* 取一段文字的开头若干句（按中文句读切分），用于拼白话摘要 */
+  function firstSentences(s, n, max) {
+    s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+    if (!s) return '';
+    var arr = s.match(/[^。！？]*[。！？]|[^。！？]+/g) || [s];
+    var out = arr.slice(0, n).join('');
+    if (max && out.length > max) out = out.slice(0, max).replace(/[，、；]$/, '') + '…';
+    return out;
+  }
+
+  /* 去掉句尾标点，避免嵌进「」或再补句号时出现「……。」、」。。」这类叠点 */
+  function trimPunct(s) {
+    return String(s == null ? '' : s).trim().replace(/[。！？，、；]+$/, '');
+  }
+
+  /* 把四字格要义包成「」，供白话摘要引用 */
+  function quote(s) {
+    var t = trimPunct(s);
+    return t ? '「' + t + '」' : '';
+  }
+
+  /* ── 白话总结：先给结论、说人话，不堆术语 ──────────────────
+   * 结果区顶部那一段。刻意避开「当位 / 承乘 / 相应」这类行话，
+   * 只讲三件事：眼下什么处境、事情往哪走、内里还有什么隐情。 */
+  function plainSummary(res) {
+    var b = res.ben, v = res.bian, h = res.hu;
+    var items = [];
+
+    var qb = quote(b.guaciJie);
+    var qv = v ? quote(v.guaciJie) : '';
+    var qh = h ? quote(h.guaciJie) : '';
+
+    items.push({
+      label: '眼下的处境',
+      text: '这一卦是【' + b.full + '】' + (qb ? '，要义就在' + qb + '——' : '。') +
+            firstSentences(b.li, 2, 120)
+    });
+
+    if (v) {
+      items.push({
+        label: '事情往哪走',
+        text: '这次掷出 ' + res.moving.length + ' 个动爻，说明局面正在起变化，不会一直停在原处。' +
+              '大的方向，是从【' + b.full + '】慢慢走到【' + v.full + '】' +
+              (qv ? '，往后的关键在' + qv : '') +
+              '。说白了：' + firstSentences(v.li, 1, 72)
+      });
+    } else {
+      items.push({
+        label: '事情往哪走',
+        text: '这次六爻都是静爻，一个动爻也没有，说明眼下局面比较稳，暂时看不出大的转折。' +
+              '这种时候不必急着求变，把手上的事做扎实、把本卦的意思守住，比另起炉灶更妥当。'
+      });
+    }
+
+    if (h) {
+      items.push({
+        label: '内里的隐情',
+        text: '台面底下还有一层，看互卦【' + h.full + '】' +
+              (qh ? '：' + qh + '——' : '。') +
+              firstSentences(h.li, 1, 84)
+      });
+    }
+
+    items.push({
+      label: '一句话记住',
+      text: (trimPunct(b.guaciJie) ? trimPunct(b.guaciJie) + '——' : '') +
+            '卦只是帮你看清处境，主意还得你自己拿。'
+    });
+
+    return {
+      head: b.full + (v ? '　→　' + v.full : '　·　六爻皆静'),
+      items: items,
+      html: items.map(function (it) {
+        return '<div class="sum-item">' +
+                 '<div class="sum-l">' + esc4(it.label) + '</div>' +
+                 '<div class="sum-t">' + esc4(it.text) + '</div>' +
+               '</div>';
+      }).join(''),
+      text: items.map(function (it) { return '【' + it.label + '】' + it.text; }).join('\n')
+    };
+  }
+
   /* 动爻 / 静爻的中文叫法 */
   var YAO_POS_NAME = ['初', '二', '三', '四', '五', '上'];
 
@@ -267,17 +373,22 @@
       '- 当位 / 不当位：是另一套判断吉凶的参考体系，不决定爻会不会变。',
       '解卦时不要把两者混为一谈，更不要说成「因为不当位所以变了卦」。',
       '',
-      '## 输出要求',
-      '1. 先用不超过 80 字给出【一句话总断】，直接回应所问之事的吉凶与走向。',
-      '2. 【卦象透视】：说明本卦、（若有）变卦与互卦合起来呈现出怎样的处境，动爻落在哪一阶段。',
-      '3. 【爻位剖析】：挑出动爻与关键爻，结合小象传与爻位分析（当位、得中、相应、承乘），',
-      '   讲清「此刻该守还是该进、该显还是该藏」，以及为什么。',
-      '4. 【行动建议】：给出 3 条具体、可执行、贴合所问之事的建议，按优先级排列。',
-      '5. 【风险提示】：点出最需要避免的一两个坑。',
-      '6. 结尾附一句提醒：卦者，时也；知进退存亡而不失其正，方为善用易者。并注明内容仅供文化参考，不构成重大决策依据。',
+      '## 输出要求（务必照此分段）',
+      '1. 【一句话总断】：先用一句不超过 40 字的话，直接回应所问之事——是宜进还是宜守、大致什么走向。放在最前面。',
+      '2. 【说人话】：用大白话把这一卦讲清楚：现在是个什么处境、卡在哪里、为什么会这样。',
+      '   写完这一段，读者应该不看任何注解也能懂。',
+      '3. 【卦象透视】：再说本卦、（若有）变卦与互卦合起来呈现出什么画面，动爻落在哪个阶段。',
+      '4. 【该怎么做】：给 3 条具体、可执行、贴着所问之事的建议，按优先级排列，每条一句话说清「做什么」。',
+      '5. 【留个心眼】：点出最需要避开的一两个坑。',
+      '6. 结尾一句提醒：卦只是帮你看清处境，主意还得自己拿；内容仅供文化参考，不构成重大决策依据。',
+      '7. 排版：每个【小标题】及其内容单独成一段，不要多个分点挤在同一行；小标题一律用【】包裹。',
       '',
-      '## 风格',
-      '平实、有分寸、不故弄玄虚、不迷信宿命；允许有温度，但避免空话套话。',
+      '## 语言风格（很重要）',
+      '- 说人话，像一位长辈当面跟你聊，不端着、不掉书袋。',
+      '- 尽量少用「当位、承乘、相应、得中」这类术语；非用不可时，必须用括号立刻用大白话解释一句。',
+      '- 不要大段引用或逐句翻译文言原文；要用，也只挑一两句，并且立刻翻译成白话。',
+      '- 不故弄玄虚、不宿命论断、不复述你的思考过程，直接给结论和理由。',
+      '- 全文控制在 600 字以内，宁短勿长。',
       '',
       '## 卦象资料',
       toText(res, question),
@@ -307,6 +418,8 @@
     tossYao: tossYao,
     tossHexagram: tossHexagram,
     buildResult: buildResult,
+    coinFaces: coinFaces,
+    plainSummary: plainSummary,
     judgeRule: judgeRule,
     explainMoving: explainMoving,
     relationInfo: relationInfo,
