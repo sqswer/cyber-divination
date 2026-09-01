@@ -41,24 +41,33 @@
     var inList = false;
     function closeList() { if (inList) { html += '</div>'; inList = false; } }
 
-    String(s == null ? '' : s).split('\n').forEach(function (raw) {
-      var line = raw.trim();
-      if (!line) { closeList(); return; }
-
-      var h = line.match(/^【\s*([^】]{1,20})\s*】\s*(.*)$/);
+    /* 渲染单块：识别【小标题】或 # 号 Markdown 标题、数字/符号列表、普通段落 */
+    function emit(b) {
+      b = b.trim();
+      if (!b) return;
+      var h = b.match(/^(?:#+\s*)?【\s*([^】]{1,20})\s*】\s*(.*)$/);
       if (h) {
         closeList();
         html += '<div class="ai-h">' + esc(h[1]) + '</div>';
         if (h[2]) html += '<div class="ai-p">' + esc(h[2]) + '</div>';
         return;
       }
-      if (/^\d+\s*[\.、]/.test(line) || /^[-•·]\s*/.test(line)) {
+      if (/^\d+\s*[\.、]/.test(b) || /^[-•·]\s*/.test(b)) {
         if (!inList) { html += '<div class="ai-ul">'; inList = true; }
-        html += '<div class="ai-li">' + esc(line.replace(/^[-•·]\s*/, '')) + '</div>';
+        html += '<div class="ai-li">' + esc(b.replace(/^[-•·]\s*/, '')) + '</div>';
         return;
       }
       closeList();
-      html += '<div class="ai-p">' + esc(line) + '</div>';
+      html += '<div class="ai-p">' + esc(b) + '</div>';
+    }
+
+    String(s == null ? '' : s).split('\n').forEach(function (raw) {
+      var line = raw.trim();
+      if (!line) { closeList(); return; }
+      /* 模型常把多个「### 【小标题】…」挤在同一行，按 ### 边界切开成独立块 */
+      var blocks = line.split(/(?=###\s)/).filter(function (x) { return x.trim(); });
+      if (blocks.length > 1) blocks.forEach(emit);
+      else emit(line);
     });
     closeList();
     return html;
