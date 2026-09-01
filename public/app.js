@@ -622,8 +622,8 @@
   function miniHex(ctx, x, y, lines, moving, w, h) {
     // lines 自下而上；y 为底边
     var n = lines.length;
-    var gap = 4;
-    var barH = Math.min(h / (n + (n - 1) * (gap / h)), 9);
+    var gap = 5;
+    var barH = Math.min(h / (n + (n - 1) * (gap / h)), 12);
     for (var i = 0; i < n; i++) {
       var yang = lines[i] === 1;
       var isM = moving && moving.indexOf(i) >= 0;
@@ -699,7 +699,7 @@
 
     var LH_BODY = 31;   // 简要总结 / 主断 行高
     var LH_AI   = 28;   // AI 解读行高
-    var SEC_GAP = 28;   // 段间距
+    var SEC_GAP = 50;   // 段间距（拉大，让 简要总结 不紧挨卦象卡）
     var HEAD_H  = 30;   // 小标题到正文
 
     /* ── 先排版算高，再建画布 ──
@@ -722,7 +722,7 @@
     probe.font = F_BODY;  var judgeLines = measureLines(probe, judgeText, CONTENT_W);
     probe.font = F_AI;    var aiLines    = aiText ? measureLines(probe, aiText, CONTENT_W) : 0;
 
-    var cardY = 126, cardH = 270;
+    var cardY = 126, cardH = 230;
     var y = cardY + cardH + SEC_GAP;
     var ySum = y;
     y += HEAD_H + leadLines * 30 + 10 + sumLines * LH_BODY + SEC_GAP;
@@ -781,18 +781,21 @@
       // 标签
       ctx.fillStyle = c.color;
       ctx.font = F_TAG;
-      ctx.fillText(c.tag, cx + cw / 2, cardY + 30);
+      ctx.fillText(c.tag, cx + cw / 2, cardY + 28);
 
       // 卦名
       ctx.fillStyle = '#eaf7ff';
       ctx.font = F_NAME;
-      ctx.fillText(c.hex.name + '卦', cx + cw / 2, cardY + 66);
+      ctx.fillText(c.hex.name + '卦', cx + cw / 2, cardY + 64);
       ctx.fillStyle = '#6b7c99';
       ctx.font = F_FULL;
-      ctx.fillText(c.hex.full, cx + cw / 2, cardY + 88);
+      ctx.fillText(c.hex.full, cx + cw / 2, cardY + 86);
 
-      // 卦画
-      miniHex(ctx, cx + cw / 2 - 48, cardY + cardH - 18, c.lines, c.mv, 96, 150);
+      // 卦画：紧贴卦名下方，画粗加大（w=110, 画 barH 上限 12），水平居中
+      var HW = 110, HH = 110;
+      var hx = cx + (cw - HW) / 2;
+      var hy = cardY + 86 + 16 + (HH - 8);  // 拼音下方 16px 起，HH 用于留 barH*6+gap*5≈92
+      miniHex(ctx, hx, hy, c.lines, c.mv, HW, HH);
     });
 
     // 小标题的统一画法
