@@ -198,8 +198,8 @@
       <div class="coin-detail" id="coinDetailBody"></div>
     </details>
 
-    <!-- 深入参详：原文与详解，默认折叠 -->
-    <details class="panel fold-panel" id="deepPanel">
+    <!-- 深入参详：原文与详解，默认展开；核心子项也默认展开，与"卦象/简要总结"直接可见体验对齐 -->
+    <details class="panel fold-panel" id="deepPanel" open>
       <summary class="fold-summary">
         <span class="fold-title">深入参详</span>
         <span class="fold-sub">为何变卦 · 三卦关系 · 卦辞原文 · 六爻详解</span>
@@ -207,27 +207,29 @@
 
       <div class="deep-wrap">
 
-        <details class="sub-fold">
+        <!-- 核心 4 个子项默认展开，让用户截图的"啥内容都没了"场景不再发生 -->
+        <details class="sub-fold" open>
           <summary class="sub-summary">为何变卦<em>本次起卦的动爻来由</em></summary>
           <div class="why-bian" id="whyBian"></div>
         </details>
 
-        <details class="sub-fold">
+        <details class="sub-fold" open>
           <summary class="sub-summary">三卦关系<em>本卦 · 变卦 · 互卦 的来龙去脉</em></summary>
           <div class="relation" id="relation"></div>
         </details>
 
-        <details class="sub-fold" id="benFold">
+        <details class="sub-fold" id="benFold" open>
           <summary class="sub-summary">本卦详解<em id="benSub"></em></summary>
           <div id="benPanel"></div>
         </details>
 
-        <!-- 六爻详解：爻辞 / 小象传 / 爻位 / 精解，放在本卦详解之下 -->
-        <details class="sub-fold" id="yaoFold">
+        <!-- 六爻详解：爻辞 / 小象传 / 爻位 / 精解，放在本卦详解之下，默认展开 -->
+        <details class="sub-fold" id="yaoFold" open>
           <summary class="sub-summary">六爻详解<em>自下而上 · <i class="dot-moving"></i> 标记为动爻</em></summary>
           <ol class="yao-list" id="yaoList"></ol>
         </details>
 
+        <!-- 变卦 / 互卦按需显示，有才出现，默认折叠 -->
         <details class="sub-fold" id="bianFold" hidden>
           <summary class="sub-summary">变卦详解<em id="bianSub"></em></summary>
           <div id="bianPanel"></div>

@@ -367,10 +367,8 @@
     // 掷钱明细：六爻各掷三枚的正反与记分
     $('#coinDetailBody').innerHTML = coinDetailHtml(r);
 
-    // 每次起卦都把折叠区收回去，保持结果页干净（六爻详解已并入「深入参详·本卦详解」之下）
-    $('#deepPanel').open = false;
-    $('#coinDetail').open = false;
-    $('#yaoFold').open = false;
+    // 每次起卦收起不常用的折叠区；深入的 4 个子项已在 HTML 默认展开，不再强制折回去
+    $('#coinDetail').open = false;  // 掷钱明细保持折叠
 
     // 为何变卦（本卦 / 变卦的来由，讲清「不是因为不当位」）
     $('#whyBian').innerHTML =
