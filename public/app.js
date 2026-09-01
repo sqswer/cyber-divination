@@ -149,7 +149,8 @@
   }
 
   /* 本次掷钱记录：六爻各掷三枚，常驻结果页顶部，随时回看
-   * 自下而上排列（初爻在下、上爻在顶），与卦画方向一致。 */
+   * 视觉顺序由 CSS 的 .toss-record { flex-direction: column-reverse } 兜底保证
+   * "上爻在顶、初爻在下"——不依赖 JS 端 reverse()，避免旧 JS 部署顺序反了。 */
   function tossRecordHtml(r) {
     var rows = r.tosses.map(function (t, i) {
       var faces = window.Divine.coinFaces(t, t * 7919 + i * 104729 + 13);
@@ -164,7 +165,7 @@
                  '=<b>' + t + '</b></span>' +
                '<span class="tr-name">' + COIN_NAME[t] + '</span>' +
              '</div>';
-    }).reverse().join('');
+    }).join('');
     return rows;
   }
 
@@ -322,6 +323,11 @@
     var r = data.result;
     state.result = r;
     state.question = data.question || $('#question').value.trim();
+
+    /* 容错：server 旧版本或缓存命中旧 JS 时，data.result 可能漏掉 judge 字段，
+       直接读 r.judge.text 会抛 TypeError 导致整个 render 中断，
+       后续 #summary / #tossRecord / #yaoList 等全部空白。前端兜底计算即可。 */
+    if (!r.judge || !r.judge.text) r.judge = window.Divine.judgeRule(r);
 
     $('#result').hidden = false;
 

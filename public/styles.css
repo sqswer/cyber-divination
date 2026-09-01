@@ -954,7 +954,14 @@ textarea::placeholder, input::placeholder { color: #4c5a72; }
 .share-tip { margin: 12px 0 0; font-size: 11.5px; color: var(--dim); }
 
 /* ── 本次掷钱记录（常驻可见） ─────────────────────────── */
-.toss-record { display: grid; gap: 7px; }
+/* 用 flex + column-reverse 兜底，强制"上爻在顶、初爻在下"。
+   即使 JS 端 tossRecordHtml 没 reverse()（旧版部署、缓存命中旧 JS），
+   CSS 也能保证视觉顺序正确——这是唯一防反的依据。 */
+.toss-record {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 7px;
+}
 .tr-row {
   display: grid;
   grid-template-columns: 48px 118px 92px 1fr;
