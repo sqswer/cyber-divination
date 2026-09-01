@@ -680,41 +680,57 @@
     if (!r) return;
 
     var SITE = '赛博卜卦 · Cyber Divination';
+    var EXPERIENCE = '体验地址  https://cyberdivine.bonto.run/';
     var W = 720;
-    var PAD = 60, CONTENT_W = W - PAD * 2, LH = 26;
+    var PAD = 56, CONTENT_W = W - PAD * 2;
 
-    /* ── 先排版算高，再建画布 ──────────────────────────────
-     * 卡片内容是变长的（有无变卦/互卦、有无 AI 解读、解读长短都不同），
-     * 固定高度必然出现大片空白或被截断。故先用一个离屏 ctx 量出各段行数，
-     * 得到精确总高后再创建真正的画布。 */
+    // 字体（测量与绘制必须完全一致）
+    var F_TITLE = '700 40px "PingFang SC","Microsoft YaHei",sans-serif';
+    var F_SUB   = '400 16px "PingFang SC",sans-serif';
+    var F_TAG   = '600 15px "PingFang SC",sans-serif';
+    var F_NAME  = '700 26px "PingFang SC",sans-serif';
+    var F_FULL  = '400 13px "PingFang SC",sans-serif';
+    var F_SEC   = '600 18px "PingFang SC",sans-serif';
+    var F_LEAD  = '700 23px "PingFang SC",sans-serif';
+    var F_BODY  = '400 19px "PingFang SC",sans-serif';
+    var F_AI    = '400 17px "PingFang SC",sans-serif';
+    var F_AISUB = '400 13px "PingFang SC",sans-serif';
+    var F_FOOT  = '400 14px "PingFang SC",sans-serif';
+
+    var LH_BODY = 31;   // 简要总结 / 主断 行高
+    var LH_AI   = 28;   // AI 解读行高
+    var SEC_GAP = 28;   // 段间距
+    var HEAD_H  = 30;   // 小标题到正文
+
+    /* ── 先排版算高，再建画布 ──
+     * 卡片内容变长（有无变/互卦、有无 AI 解读、解读长短），固定高度必留白或截断，
+     * 故先用离屏 ctx 量出各段行数，得精确总高再建画布。 */
     var probe = document.createElement('canvas').getContext('2d');
 
     var sum = window.Divine.plainSummary(r);
-    var sumItems = (sum.items || []).filter(function (it) { return it.label !== '一句话记住'; });
+    // 挑重点：卦名走向作标题式引导，正文只取前两项（眼下的处境 / 事情往哪走），不堆全量
+    var sumItems = (sum.items || []).filter(function (it) { return it.label !== '一句话记住'; }).slice(0, 2);
     var sumText = sumItems.map(function (it) { return '【' + it.label + '】' + it.text; }).join('\n');
 
     var judge = (r.judge && r.judge.text) ? r.judge : window.Divine.judgeRule(r);
     var judgeText = judge.text + ' —— ' + judge.focus;
 
-    var aiText = aiDigest(state.aiText, 620);
+    var aiText = aiDigest(state.aiText, 320);   // 只取精要，不铺满
 
-    probe.font = '400 16px "PingFang SC",sans-serif';
-    var sumLines = measureLines(probe, sumText, CONTENT_W);
-    var judgeLines = measureLines(probe, judgeText, CONTENT_W);
-    probe.font = '400 15px "PingFang SC",sans-serif';
-    var aiLines = aiText ? measureLines(probe, aiText, CONTENT_W) : 0;
+    probe.font = F_LEAD;  var leadLines  = measureLines(probe, sum.head, CONTENT_W);
+    probe.font = F_BODY;  var sumLines   = measureLines(probe, sumText, CONTENT_W);
+    probe.font = F_BODY;  var judgeLines = measureLines(probe, judgeText, CONTENT_W);
+    probe.font = F_AI;    var aiLines    = aiText ? measureLines(probe, aiText, CONTENT_W) : 0;
 
-    var cardY = 130, cardH = 300;
-    var SEC_GAP = 34;                      // 段落之间的间距
-    var HEAD_H = 30;                       // 小标题到正文的距离
-    var y = cardY + cardH + SEC_GAP;       // 三宫卦象之后的起始 y
+    var cardY = 126, cardH = 270;
+    var y = cardY + cardH + SEC_GAP;
     var ySum = y;
-    y += HEAD_H + sumLines * LH + SEC_GAP;
+    y += HEAD_H + leadLines * 30 + 10 + sumLines * LH_BODY + SEC_GAP;
     var yAi = aiText ? y : 0;
-    if (aiText) y += HEAD_H + aiLines * 24 + SEC_GAP;
+    if (aiText) y += HEAD_H + aiLines * LH_AI + SEC_GAP;
     var yJudge = y;
-    y += HEAD_H + judgeLines * LH;
-    var H = y + 80;                        // 页脚区
+    y += HEAD_H + judgeLines * LH_BODY;
+    var H = y + 96;                        // 页脚两行（免责 + 体验地址）
 
     var cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
@@ -736,11 +752,11 @@
     // 标题
     ctx.textAlign = 'center';
     ctx.fillStyle = '#eaf7ff';
-    ctx.font = '700 34px "PingFang SC","Microsoft YaHei",sans-serif';
-    ctx.fillText('☯  ' + SITE, W / 2, 74);
+    ctx.font = F_TITLE;
+    ctx.fillText('☯  ' + SITE, W / 2, 76);
     ctx.fillStyle = '#9fb0cc';
-    ctx.font = '400 15px "PingFang SC",sans-serif';
-    ctx.fillText('三枚铜钱起六爻 · 卦辞 · 大象传 · 爻位参详', W / 2, 102);
+    ctx.font = F_SUB;
+    ctx.fillText('三枚铜钱起六爻 · 卦辞 · 大象传 · 爻位参详', W / 2, 106);
 
     // 三宫卦象
     var cards = [
@@ -764,60 +780,63 @@
 
       // 标签
       ctx.fillStyle = c.color;
-      ctx.font = '600 14px "PingFang SC",sans-serif';
+      ctx.font = F_TAG;
       ctx.fillText(c.tag, cx + cw / 2, cardY + 30);
 
       // 卦名
       ctx.fillStyle = '#eaf7ff';
-      ctx.font = '700 24px "PingFang SC",sans-serif';
-      ctx.fillText(c.hex.name + '卦', cx + cw / 2, cardY + 64);
+      ctx.font = F_NAME;
+      ctx.fillText(c.hex.name + '卦', cx + cw / 2, cardY + 66);
       ctx.fillStyle = '#6b7c99';
-      ctx.font = '400 12px "PingFang SC",sans-serif';
-      ctx.fillText(c.hex.full, cx + cw / 2, cardY + 86);
+      ctx.font = F_FULL;
+      ctx.fillText(c.hex.full, cx + cw / 2, cardY + 88);
 
       // 卦画
-      miniHex(ctx, cx + cw / 2 - 48, cardY + cardH - 30, c.lines, c.mv, 96, 150);
+      miniHex(ctx, cx + cw / 2 - 48, cardY + cardH - 18, c.lines, c.mv, 96, 150);
     });
 
     // 小标题的统一画法
     function sectionHead(label, color, yy) {
       ctx.fillStyle = color;
-      ctx.font = '600 15px "PingFang SC",sans-serif';
+      ctx.font = F_SEC;
       ctx.fillText(label, PAD, yy);
     }
 
     ctx.textAlign = 'left';
 
-    // 简要总结（取 plainSummary 各项，排除末尾「一句话记住」）
+    // 简要总结：卦名走向（大字号引导）+ 前两项要点
     sectionHead('简要总结', '#00e5ff', ySum);
+    ctx.fillStyle = '#eaf7ff';
+    ctx.font = F_LEAD;
+    wrapText(ctx, sum.head, PAD, ySum + HEAD_H, CONTENT_W, 30);
     ctx.fillStyle = '#dbe6f6';
-    ctx.font = '400 16px "PingFang SC",sans-serif';
-    wrapText(ctx, sumText, PAD, ySum + HEAD_H, CONTENT_W, LH);
+    ctx.font = F_BODY;
+    wrapText(ctx, sumText, PAD, ySum + HEAD_H + leadLines * 30 + 10, CONTENT_W, LH_BODY);
 
-    // AI 解读（仅在本次真的拿到模型结果时出现）
+    // AI 解读（仅本次真拿到模型结果时出现）
     if (aiText) {
       sectionHead('AI 解读', '#b892ff', yAi);
       ctx.fillStyle = '#9fb0cc';
-      ctx.font = '400 12px "PingFang SC",sans-serif';
-      ctx.fillText('结合所问之事的独立分析', PAD + 78, yAi);
+      ctx.font = F_AISUB;
+      ctx.fillText('结合所问之事的独立分析', PAD + 96, yAi);
       ctx.fillStyle = '#e4ecfa';
-      ctx.font = '400 15px "PingFang SC",sans-serif';
-      wrapText(ctx, aiText, PAD, yAi + HEAD_H, CONTENT_W, 24);
+      ctx.font = F_AI;
+      wrapText(ctx, aiText, PAD, yAi + HEAD_H, CONTENT_W, LH_AI);
     }
 
-    // 断卦例法提示（自行计算，避免依赖 state.result.judge 是否附加）
+    // 主断（自行计算，避免依赖 state.result.judge 是否附加）
     sectionHead('主断', '#e9c46a', yJudge);
     ctx.fillStyle = '#dbe6f6';
-    ctx.font = '400 16px "PingFang SC",sans-serif';
-    wrapText(ctx, judgeText, PAD, yJudge + HEAD_H, CONTENT_W, LH);
+    ctx.font = F_BODY;
+    wrapText(ctx, judgeText, PAD, yJudge + HEAD_H, CONTENT_W, LH_BODY);
 
-    // 页脚
+    // 页脚：免责 + 体验地址
     ctx.textAlign = 'center';
     ctx.fillStyle = '#6b7c99';
-    ctx.font = '400 13px "PingFang SC",sans-serif';
-    ctx.fillText('卦者，时也。内容仅供文化参考，不作重大决策依据。', W / 2, H - 44);
-    ctx.fillStyle = '#4c5a72';
-    ctx.fillText('扫码或访问「赛博卜卦」亲自起一卦', W / 2, H - 24);
+    ctx.font = F_FOOT;
+    ctx.fillText('卦者，时也。内容仅供文化参考，不作重大决策依据。', W / 2, H - 54);
+    ctx.fillStyle = '#7fa8d8';
+    ctx.fillText(EXPERIENCE, W / 2, H - 30);
 
     // 下载 / 复制
     showShareDialog(cv);
