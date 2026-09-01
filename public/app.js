@@ -148,27 +148,6 @@
       '6 为老阴、9 为老阳，物极必反，是为动爻；7 为少阳、8 为少阴，安静不动。</p>';
   }
 
-  /* 本次掷钱记录：六爻各掷三枚，常驻结果页顶部，随时回看
-   * 视觉顺序由 CSS 的 .toss-record { flex-direction: column-reverse } 兜底保证
-   * "上爻在顶、初爻在下"——不依赖 JS 端 reverse()，避免旧 JS 部署顺序反了。 */
-  function tossRecordHtml(r) {
-    var rows = r.tosses.map(function (t, i) {
-      var faces = window.Divine.coinFaces(t, t * 7919 + i * 104729 + 13);
-      var isM = (t === 6 || t === 9);
-      return '<div class="tr-row' + (isM ? ' is-mv' : '') + '">' +
-               '<span class="tr-pos">' + POS_NAME[i] + '爻</span>' +
-               '<span class="tr-coins">' + faces.map(function (f) {
-                 return '<i class="tr-coin ' + (f.yang ? 'back' : 'word') + '">' + f.face + '</i>';
-               }).join('') + '</span>' +
-               '<span class="tr-math">' +
-                 faces.map(function (f) { return f.point; }).join('+') +
-                 '=<b>' + t + '</b></span>' +
-               '<span class="tr-name">' + COIN_NAME[t] + '</span>' +
-             '</div>';
-    }).join('');
-    return rows;
-  }
-
   /* ───────────────────────────────────────────── 起卦
    * 每爻分两步：先摇三枚铜钱，再落定记分，最后爻条浮现。
    * 六爻走完约 3.9 秒，保留「掷钱成卦」的仪式感。 */
@@ -388,10 +367,7 @@
     // 掷钱明细：六爻各掷三枚的正反与记分
     $('#coinDetailBody').innerHTML = coinDetailHtml(r);
 
-    // 本次掷钱记录：常驻可见，随时回看每一爻的三枚铜钱与记分
-    $('#tossRecord').innerHTML = tossRecordHtml(r);
-
-    // 每次起卦都把折叠区收回去，保持结果页干净（六爻详解仍独立成块、默认折叠）
+    // 每次起卦都把折叠区收回去，保持结果页干净（六爻详解已并入「深入参详·本卦详解」之下）
     $('#deepPanel').open = false;
     $('#coinDetail').open = false;
     $('#yaoFold').open = false;
@@ -635,7 +611,7 @@
     if (!r) return;
 
     var SITE = '赛博卜卦 · Cyber Divination';
-    var W = 720, H = 960;
+    var W = 720, H = 1120;
     var cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     var ctx = cv.getContext('2d');
@@ -672,7 +648,7 @@
     var cw = 200, gap = 20;
     var totalW = cards.length * cw + (cards.length - 1) * gap;
     var startX = (W - totalW) / 2;
-    var cardY = 140, cardH = 300;
+    var cardY = 130, cardH = 300;
 
     cards.forEach(function (c, k) {
       var cx = startX + k * (cw + gap);
@@ -700,20 +676,22 @@
       miniHex(ctx, cx + cw / 2 - 48, cardY + cardH - 30, c.lines, c.mv, 96, 150);
     });
 
-    // 一句话总结
+    // 简要总结（取 plainSummary 各项，排除末尾「一句话记住」）
     var sum = window.Divine.plainSummary(r);
+    var sumItems = (sum.items || []).filter(function (it) { return it.label !== '一句话记住'; });
+    var sumText = sumItems.map(function (it) { return '【' + it.label + '】' + it.text; }).join('\n');
     ctx.textAlign = 'left';
-    var sy = cardY + cardH + 50;
+    var sy = cardY + cardH + 40;
     ctx.fillStyle = '#00e5ff';
     ctx.font = '600 15px "PingFang SC",sans-serif';
-    ctx.fillText('一句话记住', 60, sy);
+    ctx.fillText('简要总结', 60, sy);
     ctx.fillStyle = '#dbe6f6';
-    ctx.font = '400 19px "PingFang SC",sans-serif';
-    wrapText(ctx, lastSentence(sum.text), 60, sy + 34, W - 120, 30);
+    ctx.font = '400 16px "PingFang SC",sans-serif';
+    wrapText(ctx, sumText, 60, sy + 30, W - 120, 26);
 
     // 断卦例法提示（自行计算，避免依赖 state.result.judge 是否附加）
     var judge = (r.judge && r.judge.text) ? r.judge : window.Divine.judgeRule(r);
-    var ry = sy + 110;
+    var ry = sy + 290;
     ctx.fillStyle = '#e9c46a';
     ctx.font = '600 15px "PingFang SC",sans-serif';
     ctx.fillText('主断', 60, ry);
@@ -741,12 +719,6 @@
     ctx.arcTo(x, y + h, x, y, r);
     ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
-  }
-
-  function lastSentence(text) {
-    // plainSummary 最后一节是「一句话记住」，取该节正文
-    var m = String(text || '').match(/【一句话记住】(.*)$/s);
-    return m ? m[1].trim() : (text || '').slice(-60);
   }
 
   function wrapText(ctx, text, x, y, maxW, lh) {

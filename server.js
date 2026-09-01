@@ -233,23 +233,36 @@ async function aiInterpret(req, res, body) {
         if (!t || t.indexOf('data:') !== 0) continue;
         const payload = t.slice(5).trim();
         if (payload === '[DONE]') { finished = true; break; }
-        try {
-          const json = JSON.parse(payload);
-          const delta = json.choices && json.choices[0] && json.choices[0].delta;
-          if (!delta) continue;
-          /* 推理模型（DeepSeek-R1 等）把思考过程放在 reasoning_content，
-           * 正式回答放在 content。产品上只展示回答，不展示思考过程，
-           * 因此这里默认把 reasoning_content 拦下，不下发给前端。 */
-          if (delta.reasoning_content) {
-            sawReasoning = true;
-            reasoningBuf += delta.reasoning_content;
-            if (cfg.showThinking) sse(res, { ok: true, delta: delta.reasoning_content });
-          }
-          if (delta.content) {
-            sse(res, { ok: true, delta: delta.content });
-            gotContent = true;
-          }
-        } catch (e) { /* 忽略无法解析的片段 */ }
+          try {
+            const json = JSON.parse(payload);
+            /* 容错提取正文与思考：兼容 OpenAI 标准（choices[0].delta.content）、
+             * 部分类 OpenAI 端点（choices[0].delta.message.content / 顶层
+             * content·text·delta），以及 reasoning_content 的各种落点。
+             * 只要模型真吐了字，就不再误判为「未返回内容」。 */
+            const c = json.choices && json.choices[0];
+            const d = c && c.delta;
+            const m = (c && c.message) || (d && d.message);
+            const content =
+              (d && typeof d.content === 'string' ? d.content : '') ||
+              (m && typeof m.content === 'string' ? m.content : '') ||
+              (typeof json.content === 'string' ? json.content : '') ||
+              (typeof json.text === 'string' ? json.text : '') ||
+              (typeof json.delta === 'string' ? json.delta : '');
+            const reason =
+              (d && typeof d.reasoning_content === 'string' ? d.reasoning_content : '') ||
+              (d && typeof d.reasoning === 'string' ? d.reasoning : '') ||
+              (m && typeof m.reasoning_content === 'string' ? m.reasoning_content : '') ||
+              (typeof json.reasoning_content === 'string' ? json.reasoning_content : '');
+            if (reason) {
+              sawReasoning = true;
+              reasoningBuf += reason;
+              if (cfg.showThinking) sse(res, { ok: true, delta: reason });
+            }
+            if (content) {
+              sse(res, { ok: true, delta: content });
+              gotContent = true;
+            }
+          } catch (e) { /* 忽略无法解析的片段 */ }
       }
       if (finished) break;
     }

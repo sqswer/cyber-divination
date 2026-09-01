@@ -161,15 +161,6 @@
       <div class="summary" id="summary"></div>
     </div>
 
-    <!-- 本次掷钱记录：六爻各掷三枚，常驻可见，随时回看 -->
-    <div class="panel toss-record-panel">
-      <div class="panel-head">
-        <h2>本次掷钱</h2>
-        <span class="panel-sub">自下而上 · 初爻在下，上爻在顶</span>
-      </div>
-      <div class="toss-record" id="tossRecord"></div>
-    </div>
-
     <!-- ══════════════ AI 解卦 ══════════════ -->
     <div class="panel ai-panel">
       <div class="panel-head">
@@ -207,15 +198,6 @@
       <div class="coin-detail" id="coinDetailBody"></div>
     </details>
 
-    <!-- 六爻详解：爻辞 / 小象传 / 爻位 / 精解，默认折叠但独立成块，方便随时展开 -->
-    <details class="panel fold-panel" id="yaoFold">
-      <summary class="fold-summary">
-        <span class="fold-title">六爻详解</span>
-        <span class="fold-sub">自下而上 · <i class="dot-moving"></i> 标记为动爻</span>
-      </summary>
-      <ol class="yao-list" id="yaoList"></ol>
-    </details>
-
     <!-- 深入参详：原文与详解，默认折叠 -->
     <details class="panel fold-panel" id="deepPanel">
       <summary class="fold-summary">
@@ -238,6 +220,12 @@
         <details class="sub-fold" id="benFold">
           <summary class="sub-summary">本卦详解<em id="benSub"></em></summary>
           <div id="benPanel"></div>
+        </details>
+
+        <!-- 六爻详解：爻辞 / 小象传 / 爻位 / 精解，放在本卦详解之下 -->
+        <details class="sub-fold" id="yaoFold">
+          <summary class="sub-summary">六爻详解<em>自下而上 · <i class="dot-moving"></i> 标记为动爻</em></summary>
+          <ol class="yao-list" id="yaoList"></ol>
         </details>
 
         <details class="sub-fold" id="bianFold" hidden>
