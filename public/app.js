@@ -148,11 +148,31 @@
       '6 为老阴、9 为老阳，物极必反，是为动爻；7 为少阳、8 为少阴，安静不动。</p>';
   }
 
+  /* 本次掷钱记录：六爻各掷三枚，常驻结果页顶部，随时回看
+   * 自下而上排列（初爻在下、上爻在顶），与卦画方向一致。 */
+  function tossRecordHtml(r) {
+    var rows = r.tosses.map(function (t, i) {
+      var faces = window.Divine.coinFaces(t, t * 7919 + i * 104729 + 13);
+      var isM = (t === 6 || t === 9);
+      return '<div class="tr-row' + (isM ? ' is-mv' : '') + '">' +
+               '<span class="tr-pos">' + POS_NAME[i] + '爻</span>' +
+               '<span class="tr-coins">' + faces.map(function (f) {
+                 return '<i class="tr-coin ' + (f.yang ? 'back' : 'word') + '">' + f.face + '</i>';
+               }).join('') + '</span>' +
+               '<span class="tr-math">' +
+                 faces.map(function (f) { return f.point; }).join('+') +
+                 '=<b>' + t + '</b></span>' +
+               '<span class="tr-name">' + COIN_NAME[t] + '</span>' +
+             '</div>';
+    }).reverse().join('');
+    return rows;
+  }
+
   /* ───────────────────────────────────────────── 起卦
    * 每爻分两步：先摇三枚铜钱，再落定记分，最后爻条浮现。
    * 六爻走完约 3.9 秒，保留「掷钱成卦」的仪式感。 */
-  var TOSS_MS = 300;   // 铜钱翻转时间
-  var HOLD_MS = 270;   // 落定后停留时间
+  var TOSS_MS = 650;   // 铜钱翻转时间（放慢，便于看清每一次掷的结果）
+  var HOLD_MS = 720;   // 落定后停留时间
 
   function cast(tosses) {
     var btn = $('#castBtn');
@@ -362,9 +382,13 @@
     // 掷钱明细：六爻各掷三枚的正反与记分
     $('#coinDetailBody').innerHTML = coinDetailHtml(r);
 
-    // 每次起卦都把折叠区收回去，保持结果页干净
+    // 本次掷钱记录：常驻可见，随时回看每一爻的三枚铜钱与记分
+    $('#tossRecord').innerHTML = tossRecordHtml(r);
+
+    // 每次起卦都把折叠区收回去，保持结果页干净（六爻详解仍独立成块、默认折叠）
     $('#deepPanel').open = false;
     $('#coinDetail').open = false;
+    $('#yaoFold').open = false;
 
     // 为何变卦（本卦 / 变卦的来由，讲清「不是因为不当位」）
     $('#whyBian').innerHTML =
@@ -576,6 +600,195 @@
       });
   }
 
+  /* ───────────────────────────────────────────── 卦象分享卡
+   * 纯前端 canvas 生成，零后端。卡片含：三宫卦象（本/变/互）、卦名、
+   * 一句话总结、站点链接。可下载图片，也可复制图片到剪贴板。 */
+  function miniHex(ctx, x, y, lines, moving, w, h) {
+    // lines 自下而上；y 为底边
+    var n = lines.length;
+    var gap = 4;
+    var barH = Math.min(h / (n + (n - 1) * (gap / h)), 9);
+    for (var i = 0; i < n; i++) {
+      var yang = lines[i] === 1;
+      var isM = moving && moving.indexOf(i) >= 0;
+      var by = y - (i + 1) * barH - i * gap;
+      if (yang) {
+        ctx.fillStyle = isM ? '#ff7eb0' : '#5fe0ff';
+        ctx.fillRect(x, by, w, barH);
+      } else {
+        var half = (w - 6) / 2;
+        ctx.fillStyle = isM ? '#ff7eb0' : '#5fe0ff';
+        ctx.fillRect(x, by, half, barH);
+        ctx.fillRect(x + half + 6, by, half, barH);
+      }
+    }
+  }
+
+  function buildShareCard() {
+    var r = state.result;
+    if (!r) return;
+
+    var SITE = '赛博卜卦 · Cyber Divination';
+    var W = 720, H = 960;
+    var cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    var ctx = cv.getContext('2d');
+
+    // 背景
+    var g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#070b14');
+    g.addColorStop(0.55, '#0a0f1c');
+    g.addColorStop(1, '#06090f');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // 霓虹边
+    ctx.strokeStyle = 'rgba(0,229,255,.35)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(16, 16, W - 32, H - 32);
+
+    // 标题
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#eaf7ff';
+    ctx.font = '700 34px "PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.fillText('☯  ' + SITE, W / 2, 74);
+    ctx.fillStyle = '#9fb0cc';
+    ctx.font = '400 15px "PingFang SC",sans-serif';
+    ctx.fillText('三枚铜钱起六爻 · 卦辞 · 大象传 · 爻位参详', W / 2, 102);
+
+    // 三宫卦象
+    var cards = [
+      { tag: '本 卦', hex: r.ben, lines: r.benLines, mv: r.moving, color: '#00e5ff' },
+      r.bian ? { tag: '变 卦', hex: r.bian, lines: r.bianLines, mv: r.moving, color: '#ff4d8d' } : null,
+      r.hu ? { tag: '互 卦', hex: r.hu, lines: r.hu.lines, mv: [], color: '#e9c46a' } : null
+    ].filter(Boolean);
+
+    var cw = 200, gap = 20;
+    var totalW = cards.length * cw + (cards.length - 1) * gap;
+    var startX = (W - totalW) / 2;
+    var cardY = 140, cardH = 300;
+
+    cards.forEach(function (c, k) {
+      var cx = startX + k * (cw + gap);
+      // 卡片底
+      ctx.fillStyle = 'rgba(18,27,45,.6)';
+      roundRect(ctx, cx, cardY, cw, cardH, 12); ctx.fill();
+      ctx.strokeStyle = c.color + '66';
+      ctx.lineWidth = 1.5;
+      roundRect(ctx, cx, cardY, cw, cardH, 12); ctx.stroke();
+
+      // 标签
+      ctx.fillStyle = c.color;
+      ctx.font = '600 14px "PingFang SC",sans-serif';
+      ctx.fillText(c.tag, cx + cw / 2, cardY + 30);
+
+      // 卦名
+      ctx.fillStyle = '#eaf7ff';
+      ctx.font = '700 24px "PingFang SC",sans-serif';
+      ctx.fillText(c.hex.name + '卦', cx + cw / 2, cardY + 64);
+      ctx.fillStyle = '#6b7c99';
+      ctx.font = '400 12px "PingFang SC",sans-serif';
+      ctx.fillText(c.hex.full, cx + cw / 2, cardY + 86);
+
+      // 卦画
+      miniHex(ctx, cx + cw / 2 - 48, cardY + cardH - 30, c.lines, c.mv, 96, 150);
+    });
+
+    // 一句话总结
+    var sum = window.Divine.plainSummary(r);
+    ctx.textAlign = 'left';
+    var sy = cardY + cardH + 50;
+    ctx.fillStyle = '#00e5ff';
+    ctx.font = '600 15px "PingFang SC",sans-serif';
+    ctx.fillText('一句话记住', 60, sy);
+    ctx.fillStyle = '#dbe6f6';
+    ctx.font = '400 19px "PingFang SC",sans-serif';
+    wrapText(ctx, lastSentence(sum.text), 60, sy + 34, W - 120, 30);
+
+    // 断卦例法提示
+    var ry = sy + 110;
+    ctx.fillStyle = '#e9c46a';
+    ctx.font = '600 15px "PingFang SC",sans-serif';
+    ctx.fillText('主断', 60, ry);
+    ctx.fillStyle = '#dbe6f6';
+    ctx.font = '400 16px "PingFang SC",sans-serif';
+    wrapText(ctx, r.judge.text + ' —— ' + r.judge.focus, 60, ry + 32, W - 120, 26);
+
+    // 页脚
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#6b7c99';
+    ctx.font = '400 13px "PingFang SC",sans-serif';
+    ctx.fillText('卦者，时也。内容仅供文化参考，不作重大决策依据。', W / 2, H - 44);
+    ctx.fillStyle = '#4c5a72';
+    ctx.fillText('扫码或访问「赛博卜卦」亲自起一卦', W / 2, H - 24);
+
+    // 下载 / 复制
+    showShareDialog(cv);
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function lastSentence(text) {
+    // plainSummary 最后一节是「一句话记住」，取该节正文
+    var m = String(text || '').match(/【一句话记住】(.*)$/s);
+    return m ? m[1].trim() : (text || '').slice(-60);
+  }
+
+  function wrapText(ctx, text, x, y, maxW, lh) {
+    text = String(text || '');
+    var line = '', yy = y;
+    for (var i = 0; i < text.length; i++) {
+      var test = line + text[i];
+      if (ctx.measureText(test).width > maxW && line) {
+        ctx.fillText(line, x, yy); line = text[i]; yy += lh;
+      } else line = test;
+    }
+    if (line) ctx.fillText(line, x, yy);
+    return yy;
+  }
+
+  function showShareDialog(cv) {
+    var url = cv.toDataURL('image/png');
+    var mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    mask.innerHTML =
+      '<div class="modal share-modal">' +
+        '<button class="close" aria-label="关闭">×</button>' +
+        '<h3 class="share-title">卦象分享卡</h3>' +
+        '<img class="share-img" src="' + url + '" alt="卦象分享卡">' +
+        '<div class="share-actions">' +
+          '<a class="btn btn-primary" id="shareDl" download="赛博卜卦-卦象卡.png" href="' + url + '">下载图片</a>' +
+          '<button class="btn btn-ghost" id="shareCp">复制图片</button>' +
+        '</div>' +
+        '<p class="share-tip">长按图片也可保存 · 纯前端生成，不上传任何数据</p>' +
+      '</div>';
+    mask.addEventListener('click', function (e) {
+      if (e.target === mask || e.target.classList.contains('close')) mask.remove();
+    });
+    document.body.appendChild(mask);
+
+    mask.querySelector('#shareCp').addEventListener('click', function () {
+      cv.toBlob(function (blob) {
+        if (!blob) { toast('当前环境不支持复制图片'); return; }
+        if (navigator.clipboard && navigator.clipboard.write) {
+          navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+            .then(function () { toast('已复制图片，去粘贴分享吧'); })
+            .catch(function () { toast('复制失败，请改用「下载图片」'); });
+        } else {
+          toast('当前环境不支持复制图片，请下载');
+        }
+      }, 'image/png');
+    });
+  }
+
   /* ───────────────────────────────────────────── 手动选爻 */
   var manualVals = [7, 7, 7, 7, 7, 7]; // 默认六爻皆少阳
 
@@ -660,6 +873,8 @@
     });
 
     $('#aiBtn').addEventListener('click', aiInterpret);
+
+    $('#shareBtn').addEventListener('click', buildShareCard);
 
     $('#recastBtn').addEventListener('click', function () {
       cast(null);

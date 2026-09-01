@@ -179,6 +179,15 @@ async function aiInterpret(req, res, body) {
 
   const sendError = (msg) => { sse(res, { ok: false, error: msg }); res.end(); };
 
+  /* 推理模型（DeepSeek-R1、Qwen-QwQ、各类 -thinking/-reasoning 等）默认把结论
+   * 也放进 reasoning_content，若不关掉 enable_thinking 就可能只收到思考、收不到
+   * 正式回答，前端便会显示「未返回内容」。当模型名看起来是推理模型、且用户未显式
+   * 设定 disableThinking 时，自动请求关闭思考过程，从源头避免该问题。 */
+  var thinkingOff = cfg.disableThinking;
+  if (!thinkingOff && /r1|qwq|reasoning|thinking|deepseek-reasoner|o1|o3/i.test(cfg.model || '')) {
+    thinkingOff = true;
+  }
+
   let upstream;
   try {
     upstream = await fetch(cfg.base + '/chat/completions', {
@@ -195,7 +204,7 @@ async function aiInterpret(req, res, body) {
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: prompt }
         ]
-      }, cfg.disableThinking ? { chat_template_kwargs: { enable_thinking: false } } : {}))
+      }, thinkingOff ? { chat_template_kwargs: { enable_thinking: false } } : {}))
     });
   } catch (e) {
     return sendError('无法连接大模型服务：' + e.message);
@@ -212,6 +221,7 @@ async function aiInterpret(req, res, body) {
   let finished = false;
   let gotContent = false;
   let sawReasoning = false;
+  let reasoningBuf = '';
 
   try {
     for await (const chunk of upstream.body) {
@@ -232,6 +242,7 @@ async function aiInterpret(req, res, body) {
            * 因此这里默认把 reasoning_content 拦下，不下发给前端。 */
           if (delta.reasoning_content) {
             sawReasoning = true;
+            reasoningBuf += delta.reasoning_content;
             if (cfg.showThinking) sse(res, { ok: true, delta: delta.reasoning_content });
           }
           if (delta.content) {
@@ -246,14 +257,21 @@ async function aiInterpret(req, res, body) {
     return sendError('读取大模型响应失败：' + e.message);
   }
 
-  // 一个字都没吐出来 —— 给前端一句人话，而不是让它干巴巴显示「未返回内容」
+  // 一个字都没吐出来 —— 兜底处理，不让前端干巴巴显示「未返回内容」
   if (!gotContent) {
-    sse(res, {
-      ok: false,
-      notice: sawReasoning
-        ? '模型这一次只顾着思考，没有给出正式回答。点「重新分析」再试一次即可。'
-        : '模型未返回内容，请点「重新分析」再试一次。'
-    });
+    if (sawReasoning && reasoningBuf) {
+      /* 推理模型只回了思考、没回正式答案（enable_thinking 未关时的常见情形）：
+       * 把思考过程当作答案下发给前端，至少让用户看到点东西，而不是空白。 */
+      sse(res, { ok: true, notice: '（模型未给出正式结论，以下为其推演过程）' });
+      sse(res, { ok: true, delta: reasoningBuf });
+    } else {
+      sse(res, {
+        ok: false,
+        notice: sawReasoning
+          ? '模型这一次只顾着思考，没有给出正式回答。点「重新分析」再试一次即可。'
+          : '模型未返回内容，请点「重新分析」再试一次。'
+      });
+    }
   }
 
   sse(res, { ok: true, done: true });

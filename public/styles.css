@@ -929,3 +929,63 @@ textarea::placeholder, input::placeholder { color: #4c5a72; }
   user-select: none;
   cursor: default;
 }
+
+/* ── 分享按钮 ─────────────────────────────────────────── */
+.btn-share {
+  background: linear-gradient(115deg, rgba(0,229,255,.16), rgba(127,142,168,.14));
+  border-color: rgba(0,229,255,.38);
+  color: #d8f6ff;
+}
+.btn-share:hover:not(:disabled) { box-shadow: 0 0 30px rgba(0,229,255,.28); }
+
+/* ── 分享弹层 ─────────────────────────────────────────── */
+.share-modal { width: min(460px, 100%); text-align: center; }
+.share-title {
+  margin: 0 0 16px; font-size: 18px; font-weight: 700;
+  letter-spacing: .1em; color: var(--cyan);
+}
+.share-img {
+  width: 100%; border-radius: var(--r-s);
+  border: 1px solid var(--line-soft);
+  box-shadow: 0 10px 30px rgba(0,0,0,.5);
+}
+.share-actions { display: flex; gap: 11px; margin-top: 16px; }
+.share-actions .btn { flex: 1; text-decoration: none; }
+.share-tip { margin: 12px 0 0; font-size: 11.5px; color: var(--dim); }
+
+/* ── 本次掷钱记录（常驻可见） ─────────────────────────── */
+.toss-record { display: grid; gap: 7px; }
+.tr-row {
+  display: grid;
+  grid-template-columns: 48px 118px 92px 1fr;
+  gap: 11px; align-items: center;
+  padding: 8px 12px; border-radius: 8px; font-size: 13px;
+  background: rgba(4,8,16,.42); border: 1px solid var(--line-soft);
+}
+.tr-row.is-mv {
+  background: linear-gradient(96deg, rgba(255,77,141,.10), rgba(4,8,16,.42) 60%);
+  border-color: rgba(255,77,141,.34);
+}
+.tr-pos { color: var(--txt); font-weight: 600; }
+.tr-coins { display: flex; gap: 5px; }
+.tr-coin {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-style: normal; font-size: 12px; font-weight: 700; color: #3a2c05;
+  background: radial-gradient(circle at 32% 26%, #f7e6b0, #c9a143 62%, #8a6a20);
+  box-shadow: inset 0 -2px 4px rgba(0,0,0,.3);
+}
+.tr-coin.word {
+  background: radial-gradient(circle at 32% 26%, #cfd9ea, #7f8ea8 62%, #3d4757);
+  color: #1d2430;
+}
+.tr-math { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+.tr-math b { color: var(--gold); font-size: 14px; }
+.tr-row.is-mv .tr-math b { color: var(--rose); }
+.tr-name { font-size: 12.5px; color: var(--txt-2); }
+.tr-row.is-mv .tr-name { color: #ffd8e6; }
+@media (max-width: 560px) {
+  .tr-row { grid-template-columns: 40px 1fr; gap: 6px 10px; }
+  .tr-math, .tr-name { grid-column: 2; }
+  .tr-name { text-align: left; }
+}
