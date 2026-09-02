@@ -46,7 +46,7 @@
     function emit(b) {
       b = b.trim();
       if (!b) return;
-      var h = b.match(/^(?:#+\s*)?【\s*([^】]{1,20})\s*】\s*(.*)$/);
+      var h = b.match(/^(?:\d+[\.、]\s*|[-•·]\s*|#+\s*)?【\s*([^】]{1,20})\s*】\s*(.*)$/);
       if (h) {
         closeList();
         html += '<div class="ai-h">' + esc(h[1]) + '</div>';
