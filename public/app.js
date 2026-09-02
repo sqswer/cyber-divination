@@ -641,7 +641,7 @@
   }
 
   /* 把 AI 解卦正文洗成适合画进卡片的纯文本：
-   * 去掉 markdown 记号与分隔线，压掉多余空行，超长则按段落截断并留省略号。 */
+   * 去掉 markdown 记号与分隔线，压掉多余空行，超长则按段落边界截断并留省略号。 */
   function aiDigest(text, maxChars) {
     var s = String(text || '')
       .replace(/```[\s\S]*?```/g, '')      // 代码块
@@ -654,25 +654,39 @@
       .replace(/\n{3,}/g, '\n\n')
       .trim();
     if (s.length <= maxChars) return s;
-    // 超长：尽量在段落边界截断，读起来不突兀
+    // 超长时优先按 \n\n 段落边界切，保证每段完整；找不到再退到单句边界。
     var cut = s.slice(0, maxChars);
+    var dblBreak = cut.lastIndexOf('\n\n');
+    if (dblBreak > maxChars * 0.55) return s.slice(0, dblBreak).trimEnd() + '\n……';
     var lastBreak = Math.max(cut.lastIndexOf('\n'), cut.lastIndexOf('。'), cut.lastIndexOf('；'));
     if (lastBreak > maxChars * 0.6) cut = s.slice(0, lastBreak + 1);
     return cut.trim() + '……';
   }
 
-  /* 只测量不绘制：算出 wrapText 在给定宽度下会占多少行，用于动态定卡片高度。 */
-  function measureLines(ctx, text, maxW) {
+  /* 只测量不绘制：算出 wrapText 在给定宽度下会占多少行，用于动态定卡片高度。
+   * 单个 \n 算 1 行；连续 \n\n 算 1 行 + 段间距折算。 */
+  function measureLines(ctx, text, maxW, lh, paraGap) {
     text = String(text || '');
-    var lines = 0, line = '';
+    paraGap = paraGap || 0;
+    var total = 0, line = '';
     for (var i = 0; i < text.length; i++) {
-      if (text[i] === '\n') { lines++; line = ''; continue; }
-      var test = line + text[i];
-      if (ctx.measureText(test).width > maxW && line) { lines++; line = text[i]; }
+      var ch = text[i];
+      if (ch === '\n') {
+        if (text[i + 1] === '\n') {
+          i++;
+          total += 1 + paraGap / lh;
+        } else {
+          total += 1;
+        }
+        line = '';
+        continue;
+      }
+      var test = line + ch;
+      if (ctx.measureText(test).width > maxW && line) { total++; line = ch; }
       else line = test;
     }
-    if (line) lines++;
-    return lines || 1;
+    if (line) total++;
+    return Math.max(total, 1);
   }
 
   function buildShareCard() {
@@ -693,14 +707,15 @@
     var F_SEC   = '600 18px "PingFang SC",sans-serif';
     var F_LEAD  = '700 23px "PingFang SC",sans-serif';
     var F_BODY  = '400 19px "PingFang SC",sans-serif';
-    var F_AI    = '400 17px "PingFang SC",sans-serif';
+    var F_AI    = '400 19px "PingFang SC",sans-serif';   // 与简要总结同字号，避免视觉落差
     var F_AISUB = '400 13px "PingFang SC",sans-serif';
     var F_FOOT  = '400 14px "PingFang SC",sans-serif';
 
-    var LH_BODY = 31;   // 简要总结 / 主断 行高
-    var LH_AI   = 28;   // AI 解读行高
-    var SEC_GAP = 50;   // 段间距（拉大，让 简要总结 不紧挨卦象卡）
-    var HEAD_H  = 30;   // 小标题到正文
+    var LH_BODY = 32;   // 简要总结 / 主断 行高
+    var LH_AI   = 32;   // AI 解读行高，与简段一致
+    var PARA_GAP = 12;  // 段落之间的额外间距（AI/简段遇 \n\n 时叠加）
+    var SEC_GAP = 30;   // 段间距（不再 50，避免 AI 解读下方大片留白）
+    var HEAD_H  = 32;   // 小标题到正文
 
     /* ── 先排版算高，再建画布 ──
      * 卡片内容变长（有无变/互卦、有无 AI 解读、解读长短），固定高度必留白或截断，
@@ -715,12 +730,12 @@
     var judge = (r.judge && r.judge.text) ? r.judge : window.Divine.judgeRule(r);
     var judgeText = judge.text + ' —— ' + judge.focus;
 
-    var aiText = aiDigest(state.aiText, 320);   // 只取精要，不铺满
+    var aiText = aiDigest(state.aiText, 480);   // 字号加大后多放一段，把内容说完
 
-    probe.font = F_LEAD;  var leadLines  = measureLines(probe, sum.head, CONTENT_W);
-    probe.font = F_BODY;  var sumLines   = measureLines(probe, sumText, CONTENT_W);
-    probe.font = F_BODY;  var judgeLines = measureLines(probe, judgeText, CONTENT_W);
-    probe.font = F_AI;    var aiLines    = aiText ? measureLines(probe, aiText, CONTENT_W) : 0;
+    probe.font = F_LEAD;  var leadLines  = measureLines(probe, sum.head, CONTENT_W, 30);
+    probe.font = F_BODY;  var sumLines   = measureLines(probe, sumText, CONTENT_W, LH_BODY, 12);
+    probe.font = F_BODY;  var judgeLines = measureLines(probe, judgeText, CONTENT_W, LH_BODY);
+    probe.font = F_AI;    var aiLines    = aiText ? measureLines(probe, aiText, CONTENT_W, LH_AI, 12) : 0;
 
     var cardY = 126, cardH = 230;
     var y = cardY + cardH + SEC_GAP;
@@ -730,7 +745,7 @@
     if (aiText) y += HEAD_H + aiLines * LH_AI + SEC_GAP;
     var yJudge = y;
     y += HEAD_H + judgeLines * LH_BODY;
-    var H = y + 96;                        // 页脚两行（免责 + 体验地址）
+    var H = y + 84;                        // 页脚两行（免责 + 体验地址），间距收紧
 
     var cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
@@ -857,11 +872,22 @@
 
   function wrapText(ctx, text, x, y, maxW, lh) {
     text = String(text || '');
-    var line = '', yy = y;
+    var yy = y, line = '';
     for (var i = 0; i < text.length; i++) {
-      var test = line + text[i];
+      var ch = text[i];
+      if (ch === '\n') {
+        if (line) { ctx.fillText(line, x, yy); line = ''; }
+        if (text[i + 1] === '\n') {
+          i++;                          // 吞掉第二个 \n
+          yy += lh + 12;                // 行高 + 额外段间距
+        } else {
+          yy += lh;
+        }
+        continue;
+      }
+      var test = line + ch;
       if (ctx.measureText(test).width > maxW && line) {
-        ctx.fillText(line, x, yy); line = text[i]; yy += lh;
+        ctx.fillText(line, x, yy); line = ch; yy += lh;
       } else line = test;
     }
     if (line) ctx.fillText(line, x, yy);
